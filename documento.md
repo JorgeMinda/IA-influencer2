@@ -1,6 +1,6 @@
 # Documento vivo — AI Creator Studio
 
-**Última actualización:** 2026-10-28 · **Orquesta:** Claude · **Dueño del proyecto:** el usuario
+**Última actualización:** 2026-10-28 · **Orquesta:** Claude (opencode) · **Dueño del proyecto:** el usuario
 **Para qué sirve:** (1) fijar el método con que se construye la app para que nada se dé por hecho sin comprobarlo, y (2) registrar cada avance y cada detalle. Se actualiza al cerrar cada tarea.
 
 ## Leyenda de evidencia
@@ -77,14 +77,15 @@ Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y m
 |---|---|---|
 | Contrato de la API v1 | ✅ | `docs/api-contracts.md` leído completo. Dos correcciones hechas: los archivos firmados no exigen `X-API-Key`, y se añadió el código 500 `internal_error`. |
 | Arquitectura | ✅ escrito | `docs/architecture.md` |
-| Backend | ⛔ sin código | `backend/` solo tiene `requirements.txt` y `requirements-dev.txt`. `import fastapi` e `import httpx` fallan; `pip download fastapi` no encuentra distribución. |
-| Frontend: código | 🟡 | 36 archivos en `apps/frontend/src`: 13 previos y 23 nuevos de una ejecución interrumpida. Nunca se han compilado. |
-| Frontend: páginas | 🟡 parcial | Existen Personajes, Ficha del personaje y 404. Faltan Estudio, Galería y Ajustes. |
-| Frontend: estilos | ⬜ | No hay ningún archivo `.css`. |
+| Backend | ⛔ sin código | `backend/` solo tiene `requirements.txt` y `requirements-dev.txt`. Sin FastAPI instalado en este entorno. |
+| Frontend: código | ✅ compilable | `tsc --noEmit` pasa sin errores. 40 archivos en `apps/frontend/src`. |
+| Frontend: páginas | ✅ completas | Personajes, Ficha, Estudio, Galería, Ajustes, 404 — todas implementadas. |
+| Frontend: estilos | ✅ | `src/styles.css` creado (layout responsive, componentes, diálogos, toast). |
 | Frontend: pruebas | ⬜ | No hay ningún `*.test.*`. |
-| Dependencias del frontend | ⛔ | `node_modules` vacío; `npm view react version` falla por red. |
+| Dependencias del frontend | ✅ instaladas | `npm install` exitoso (176 paquetes). `@rollup/rollup-win32-x64-msvc` añadido para build. |
+| Build de producción | ✅ | `npm run build` exitoso — 66 módulos, 224.65 kB JS (71.76 kB gzip). |
 | Motor ComfyUI y nube | ⬜ | No implementados. |
-| Respaldo | 🟡 | Commit local `0a063d3` (rama `main`). `.zip` enviado al usuario. GitHub sin vincular. Carpeta de Windows sin acceso. |
+| Respaldo | ✅ | Commit `5012bcf` en `master`, push a `https://github.com/JorgeMinda/IA-influencer2.git`. |
 
 Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, uvicorn, python-multipart, httpx2. Faltan: fastapi, httpx. **Por comprobar:** si el `TestClient` de Starlette funciona con `httpx2`.
 
@@ -148,6 +149,19 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - **Corrección:** informé «unos 27 archivos» del frontend; el conteo verificado es 23 nuevos (36 en total en `src`).
 - Commit local `0a063d3`. `.zip` enviado. GitHub sin vincular.
 - Creado este documento.
+
+### 2026-10-28 — Completar frontend (páginas faltantes + estilos + build)
+- **Qué cambió:**
+  - Creadas las 3 páginas faltantes: `StudioPage.tsx` (formulario de generación + lista de jobs), `GalleryPage.tsx` (galería con filtros + paginación + borrado), `SettingsPage.tsx` (URL base, API key, estado de motores).
+  - Creado `src/styles.css` con layout responsive, componentes, diálogos, toast, banners.
+  - Instaladas dependencias del frontend (`npm install`, 176 paquetes). Añadido `@rollup/rollup-win32-x64-msvc` para el build en Windows.
+- **Evidencia:**
+  - `npx tsc --noEmit` → 0 errores.
+  - `npm run build` → ✓ 66 módulos, 224.65 kB JS (71.76 kB gzip), build en 2.62s.
+  - `npm test` → sin archivos de test (esperado, no hay tests aún).
+- **Estado:** ✅ frontend compilable y con build de producción exitoso.
+- **Pendiente:** backend FastAPI (sin código), tests (unit + e2e), adaptadores de motor (mock, ComfyUI, nube), PWA/Tauri/Capacitor.
+- **Decisiones:** ninguna nueva. Se sigue el contrato v1 como fuente de verdad.
 
 ---
 
