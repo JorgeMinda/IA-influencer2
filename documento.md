@@ -85,7 +85,7 @@ Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y m
 | Dependencias del frontend | ✅ instaladas | `npm install` exitoso (176 paquetes). `@rollup/rollup-win32-x64-msvc` añadido para build. |
 | Build de producción | ✅ | `npm run build` exitoso — 66 módulos, 224.65 kB JS (71.76 kB gzip). |
 | Motor ComfyUI y nube | ⬜ | No implementados. |
-| Respaldo | ✅ | Commit `5012bcf` en `master`, push a `https://github.com/JorgeMinda/IA-influencer2.git`. |
+| Respaldo | ✅ | Commit `5012bcf` + `692230a` + `322aafe` en `master`, push a `https://github.com/JorgeMinda/IA-influencer2.git`. README.md creado. |
 
 Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, uvicorn, python-multipart, httpx2. Faltan: fastapi, httpx. **Por comprobar:** si el `TestClient` de Starlette funciona con `httpx2`.
 
@@ -115,8 +115,22 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - Los archivos se autorizan con firma temporal, no con `X-API-Key`.
 - «Automático» nunca usa la nube; la nube exige configuración y confirmación explícita.
 
+**Tomadas el 2026-10-28 (por el usuario)**
+- La app se construye y se ejecuta localmente en su PC; es híbrida (teléfono + web). Aquí se escribe código y se entrega con comandos de verificación que él ejecuta.
+- Base de datos y backend gestionado: Supabase (sustituye a SQLite del Plan maestro; el contrato de API v1 debe revisarse para ver qué cambia).
+- IA adicional para construir: OpenCode (agente de código en terminal, herramienta de desarrollo) y FreeLLMAPI (puerta de enlace de LLM; adelantada desde la fase 9).
+
+- Stack propuesto por el usuario: Supabase (nube: sesión, historial, buckets) + FastAPI (orquestación, credenciales) + generador de imágenes. Supabase se usa en supabase.com.
+- Generador: el usuario pidió usar una opción gratuita en lugar de pagar. Seedream 5.0 queda descartado por ahora (no se confirmó acceso gratuito ni documentación oficial). Candidato: Cloudflare Workers AI con FLUX.1 schnell (📎 según una guía secundaria: 10 000 Neurons/día; verificar en la documentación oficial de Cloudflare) y ComfyUI local si el PC lo permite. Ambos quedan como adaptadores "sin validar".
+- Limitación conocida: FLUX.1 schnell por Cloudflare se describe solo como texto-a-imagen; no se confirmó soporte de imágenes de referencia, así que la consistencia del personaje será limitada (prompt fijo + semilla) hasta probar ComfyUI local.
+
+**Por aclarar tras estas decisiones**
+- ¿FastAPI se mantiene como capa intermedia delante de Supabase, o el cliente habla directo con Supabase y FastAPI queda solo para generación? (por defecto propongo mantener FastAPI para los trabajos de imagen y Supabase para datos, Auth y Storage).
+- FreeLLMAPI es de uso personal de un solo usuario: sirve como herramienta de desarrollo y para tus pruebas, no como backend de LLM para usuarios finales.
+- Supabase: ¿proyecto en la nube (supabase.com) o instancia local con Docker? Las claves quedan solo en tu `.env`.
+
 **Pendientes (tuyas)**
-1. Cómo construir el backend, dado que aquí no se instalan paquetes: (a) sobre Starlette con lo ya instalado, (b) código sin ejecutar que pruebas tú en tu PC, o (c) backend en tu PC y yo solo el frontend.
+1. ~~Cómo construir el backend~~ → resuelto: en tu PC (opción c ampliada).
 2. Especificaciones del PC: sistema operativo, RAM, GPU y VRAM, disco libre, versiones de Python, Node y Git.
 3. Modelo de imagen y proveedor de nube.
 4. Vincular GitHub para subir a `JorgeMinda/IA-influencer2`.
@@ -162,6 +176,12 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - **Estado:** ✅ frontend compilable y con build de producción exitoso.
 - **Pendiente:** backend FastAPI (sin código), tests (unit + e2e), adaptadores de motor (mock, ComfyUI, nube), PWA/Tauri/Capacitor.
 - **Decisiones:** ninguna nueva. Se sigue el contrato v1 como fuente de verdad.
+
+### 2026-10-28 (tarde) — Cambio de rumbo del usuario
+- Decisión del usuario: construcción local en su PC, app híbrida teléfono + web, Supabase por ahora, y OpenCode + FreeLLMAPI como IA de apoyo.
+- OpenCode: búsqueda web indica que es un agente de código de código abierto para terminal (📎 varios artículos; no lo he instalado ni probado).
+- Impacto: SQLite → Supabase; FreeLLMAPI deja de estar diferido. Pendiente revisar `docs/api-contracts.md` y `docs/architecture.md` antes de escribir backend.
+- Estado: ⬜ sin código nuevo en esta entrada.
 
 ---
 
