@@ -1,0 +1,165 @@
+# Documento vivo — AI Creator Studio
+
+**Última actualización:** 2026-10-28 · **Orquesta:** Claude · **Dueño del proyecto:** el usuario
+**Para qué sirve:** (1) fijar el método con que se construye la app para que nada se dé por hecho sin comprobarlo, y (2) registrar cada avance y cada detalle. Se actualiza al cerrar cada tarea.
+
+## Leyenda de evidencia
+
+| Marca | Significa |
+|---|---|
+| ✅ Verificado | Lo ejecuté o lo leí en disco o en la fuente, y cito la evidencia. |
+| 🟡 Escrito, sin verificar | Existe el código o el texto, pero no se ha ejecutado ni probado. |
+| 📎 Declarado por una fuente | Lo dice un documento o un sitio; no lo comprobé por mi cuenta. |
+| ⛔ Bloqueado | No se puede avanzar sin una decisión tuya o un cambio de entorno. |
+| ⬜ Pendiente | Aún no se ha hecho. |
+
+---
+
+## 1. Método de orquestación contra alucinaciones
+
+### 1.1 Reglas
+
+1. **Una sola fuente de verdad.** `docs/api-contracts.md` manda entre backend y frontend. Todo cambio se escribe primero ahí y se anota en la bitácora.
+2. **Cada afirmación lleva su marca de evidencia.** No escribo «funciona», «probado» ni «listo» sin ✅ y el comando o archivo que lo respalda.
+3. **Ejecutar antes de afirmar.** Cada tarea cierra con una prueba real (`pytest`, `typecheck`, `build`, humo con `curl`, capturas del navegador). Se registra el conteo exacto («41/41»), no «pasó».
+4. **Lo que dice un agente es una afirmación, no un hecho.** Lo contrasto con el disco (`ls`, `git status`, ejecutar) antes de informarlo. Ejemplo real: el agente del backend dijo que faltaban `fastapi` y `httpx`; lo comprobé con imports y con `pip download` antes de registrarlo. Ejemplo al revés: yo informé «unos 27 archivos» del frontend y el conteo verificado fue 23 nuevos; se corrigió en la bitácora.
+5. **Nada inventado.** No escribo sin fuente proveedores, URLs, IDs de modelos, precios, cuotas gratuitas ni versiones. Los datos externos se buscan y se citan; si no se confirman, se escribe «no confirmado». Ejemplo: las cifras de FreeLLMAPI no coinciden entre su README (34 proveedores, 635 endpoints), su sitio (65, 985) y su catálogo (38, 395), así que no se usan como dato.
+6. **Lo no validado se rotula como tal**, en el código y en la documentación. ComfyUI y la nube se entregan como «sin validar contra una instancia real» hasta que se prueben.
+7. **Alcance por fases con criterio de salida.** No se pasa a la fase siguiente sin cumplir la actual (Plan Maestro §11). Lo diferido (videollamada, pagos, LoRA, FreeLLMAPI, OpenJarvis) no se toca antes.
+8. **Reparto con fronteras.** Cada agente trabaja en su carpeta y contra el contrato; no edita el contrato ni el trabajo del otro. La integración (frontend contra backend real) la verifico yo con una prueba de extremo a extremo.
+9. **Revisión independiente en lo crítico.** Para seguridad (firma de archivos, autenticación, subidas) y enrutamiento de nube (confirmación, «Automático» sin nube), un agente distinto, que no vio cómo se escribió el código, lo revisa contra el contrato.
+10. **Las decisiones tuyas se preguntan, no se suponen:** equipo (RAM, GPU), modelo de imagen, proveedor de nube, alojamiento, autenticación.
+11. **Sin secretos en el repositorio.** Solo `.env.example` con valores ficticios; nunca claves en logs, capturas ni en este documento.
+12. **Todo hito queda respaldado:** commit con lo verificado en el mensaje, y copia a GitHub y a tu carpeta cuando estén disponibles.
+
+### 1.2 Ciclo de cada tarea
+
+1. Criterio de aceptación: qué debe ocurrir, en una frase comprobable.
+2. Contrato, si toca la API.
+3. Implementación en la carpeta del responsable.
+4. Verificación con comando y salida registrada.
+5. Revisión independiente si es crítico.
+6. Entrada en la bitácora (fecha, qué, evidencia, pendiente).
+7. Commit y respaldo.
+
+### 1.3 Matriz de verificación
+
+| Entregable | Cómo se comprueba | Evidencia que se registra |
+|---|---|---|
+| Endpoint de la API | `pytest` + humo con `curl` | n pasadas / n totales y respuesta real |
+| Subida de archivos | Extensión falsa, archivo excesivo, dimensiones, EXIF | Cada caso y su resultado |
+| URLs firmadas | Firma manipulada, caducada, ruta con `..` | Códigos 403/404 observados |
+| Enrutamiento | Las 7 reglas del contrato | Un test por regla |
+| Pantalla del frontend | `typecheck`, `vitest`, `build`, capturas 1280×800 y 390×844 en claro y oscuro, sin scroll horizontal | Conteos y hallazgos de las capturas |
+| Flujo completo | Navegador real: crear personaje → subir referencia → generar (simulado) → ver en galería | Capturas y resultado |
+| Dato externo | Búsqueda con fuente | Enlace y fecha |
+| ComfyUI / nube | Solo con instancia o proveedor reales | Mientras tanto: «sin validar» |
+
+### 1.4 Roles
+
+| Rol | Hace | Carpeta | No hace |
+|---|---|---|---|
+| Orquestador (Claude) | Contrato, reparto, integración, verificación cruzada, bitácora, commits | `docs/`, raíz | Dar por buenos informes sin comprobarlos |
+| Agente backend | API, SQLite, motores, pruebas, `security.md` | `backend/`, `workflows/` | Tocar `apps/` o el contrato |
+| Agente frontend | Pantallas, PWA, pruebas, capturas | `apps/frontend/` | Tocar `backend/` o el contrato |
+| Revisor independiente | Revisa seguridad y enrutamiento contra el contrato | Solo lectura | Escribir código |
+| Tú | Decisiones abiertas; probar en tu PC y tus dispositivos | — | — |
+
+### 1.5 Cuando no puedo verificar
+
+Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y me pegues la salida. No declaro éxito sin esa salida.
+
+---
+
+## 2. Estado actual (verificado el 2026-10-28)
+
+| Pieza | Estado | Evidencia |
+|---|---|---|
+| Contrato de la API v1 | ✅ | `docs/api-contracts.md` leído completo. Dos correcciones hechas: los archivos firmados no exigen `X-API-Key`, y se añadió el código 500 `internal_error`. |
+| Arquitectura | ✅ escrito | `docs/architecture.md` |
+| Backend | ⛔ sin código | `backend/` solo tiene `requirements.txt` y `requirements-dev.txt`. `import fastapi` e `import httpx` fallan; `pip download fastapi` no encuentra distribución. |
+| Frontend: código | 🟡 | 36 archivos en `apps/frontend/src`: 13 previos y 23 nuevos de una ejecución interrumpida. Nunca se han compilado. |
+| Frontend: páginas | 🟡 parcial | Existen Personajes, Ficha del personaje y 404. Faltan Estudio, Galería y Ajustes. |
+| Frontend: estilos | ⬜ | No hay ningún archivo `.css`. |
+| Frontend: pruebas | ⬜ | No hay ningún `*.test.*`. |
+| Dependencias del frontend | ⛔ | `node_modules` vacío; `npm view react version` falla por red. |
+| Motor ComfyUI y nube | ⬜ | No implementados. |
+| Respaldo | 🟡 | Commit local `0a063d3` (rama `main`). `.zip` enviado al usuario. GitHub sin vincular. Carpeta de Windows sin acceso. |
+
+Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, uvicorn, python-multipart, httpx2. Faltan: fastapi, httpx. **Por comprobar:** si el `TestClient` de Starlette funciona con `httpx2`.
+
+---
+
+## 3. Fases y criterios de salida (Plan maestro §11)
+
+| Fase | Criterio de salida | Estado |
+|---|---|---|
+| 1. Fundamentos | El frontend arranca, la API responde, la configuración es segura | ⛔ Nada ha arrancado todavía |
+| 2. Personajes | Crear, editar y recuperar una ficha tras reiniciar | ⬜ |
+| 3. Galería | Imágenes organizadas y asociadas a personajes | ⬜ |
+| 4. Motor local | Una tarea real genera una imagen | ⬜ Requiere datos del PC |
+| 5. Consistencia | Se comparan resultados y se documentan limitaciones | ⬜ |
+| 6. Nube | Adaptador que no acopla la lógica central | ⬜ |
+| 7. PWA y empaquetado | PWA probada | ⬜ Los archivos PWA existen (🟡), sin probar |
+| 8. Seguridad | Lista de verificación completada | ⬜ |
+| 9. IA adicional | Integraciones justificadas | ⬜ Diferida |
+
+---
+
+## 4. Decisiones
+
+**Tomadas**
+- El Plan maestro v1.0 es la línea base. El Informe técnico v1 es la dirección a futuro (ver `docs/architecture.md`).
+- El contrato de la API v1 es la fuente de verdad.
+- Los archivos se autorizan con firma temporal, no con `X-API-Key`.
+- «Automático» nunca usa la nube; la nube exige configuración y confirmación explícita.
+
+**Pendientes (tuyas)**
+1. Cómo construir el backend, dado que aquí no se instalan paquetes: (a) sobre Starlette con lo ya instalado, (b) código sin ejecutar que pruebas tú en tu PC, o (c) backend en tu PC y yo solo el frontend.
+2. Especificaciones del PC: sistema operativo, RAM, GPU y VRAM, disco libre, versiones de Python, Node y Git.
+3. Modelo de imagen y proveedor de nube.
+4. Vincular GitHub para subir a `JorgeMinda/IA-influencer2`.
+5. Vincular tu PC o usar el `.zip` para `C:\Users\minda\Desktop\IA influencer2`.
+
+---
+
+## 5. Límites del entorno y riesgos
+
+- **Entorno:** sin acceso a los registros de pip y npm (verificado). No se pueden instalar FastAPI, httpx, React ni Vite aquí, así que no se puede ejecutar el frontend ni probarlo en un navegador contra una build real.
+- **Límite de uso:** los agentes en paralelo pueden cortarse por el límite de uso (ocurrió con el agente del frontend). Por eso cada hito se guarda en commit y se anota aquí.
+- **Sesión temporal:** la carpeta en la nube puede perderse al terminar la sesión; de ahí los respaldos.
+- **Sin validar:** ComfyUI y la nube.
+- **Riesgos de producto (del informe):** los términos de uso de los proveedores gratuitos; FreeLLMAPI es de uso personal; el nicho +18 exige revisar las reglas de procesadores de pago y de proveedores de GPU antes de plantearlo.
+
+---
+
+## 6. Bitácora
+
+### 2026-10-27 — Entrada de documentos e investigación
+- Recibidos: Informe técnico v1 (el segundo archivo llegó cortado en §1.1) y Plan maestro v1.0. 📎
+- Revisión del Informe v1: su índice `jobs(estado)` apunta a una columna que no existe, y los IDs de modelos de fal.ai no estaban verificados. No se usaron. ✅ (leído en el texto)
+- FreeLLMAPI: su README lo define como «Personal experimentation only» y su sitio como «single-user». ✅ (fuente pública)
+- IA HUB e IA Influencer: solo pude leer sus páginas públicas, no las apps tras el login. Precios, temporadas, Chatting Hub y modelos citados en el informe: no confirmados.
+- OpenJarvis: licencia Apache 2.0, de laboratorios de Stanford, local-first. Opcional y diferido a la fase 9. 📎
+
+### 2026-10-28 — Arranque de la construcción
+- Encontrada la carpeta con el contrato y la base del frontend ya presentes. Se corrigieron dos puntos del contrato y se escribió `docs/architecture.md`.
+- Se lanzaron dos agentes (backend y frontend). El del backend no produjo código: pip no alcanza el registro (comprobado por mí). El del frontend se cortó por límite de uso después de escribir 23 archivos nuevos.
+- **Corrección:** informé «unos 27 archivos» del frontend; el conteo verificado es 23 nuevos (36 en total en `src`).
+- Commit local `0a063d3`. `.zip` enviado. GitHub sin vincular.
+- Creado este documento.
+
+---
+
+## 7. Cómo se actualiza este documento
+
+Se añade una entrada al cerrar cada tarea y cuando cambie una decisión. Las entradas anteriores no se borran: una corrección se escribe como entrada nueva.
+
+```
+### AAAA-MM-DD — título
+- Qué cambió:
+- Evidencia (comando y resultado):
+- Estado (✅ / 🟡 / ⛔ / ⬜):
+- Pendiente o siguiente paso:
+- Decisiones o cambios al contrato:
+```

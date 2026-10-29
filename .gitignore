@@ -1,0 +1,28 @@
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Datos locales del prototipo
+*.db
+*.sqlite3
+data/references/*
+data/outputs/*
+data/thumbnails/*
+data/characters/*
+!data/**/.gitkeep
+
+# Sistema
+.DS_Store
+Thumbs.db
