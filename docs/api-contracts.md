@@ -7,7 +7,7 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 
 - JSON UTF-8, claves en `snake_case`. Fechas ISO 8601 en UTC (`2026-10-27T15:30:00Z`).
 - IDs: UUID v4 como string.
-- **Autenticación:** cabecera `X-API-Key`. Si el servidor tiene `ACS_API_KEY` definida, es obligatoria en todas las rutas salvo `GET /api/health` y `GET /api/files/...` (un `<img src>` no puede enviar cabeceras; los archivos se autorizan solo con su firma temporal, ver «Archivos»). Sin clave válida → `401 unauthorized`. Si `ACS_API_KEY` está vacía, el servidor solo debe aceptar conexiones desde `127.0.0.1` (modo desarrollo) y avisar en el arranque.
+- **Autenticación:** modo dual. (a) **Desarrollo / un solo usuario:** cabecera `X-API-Key`. Si `ACS_API_KEY` está definida, es obligatoria en todas las rutas salvo `GET /api/health` y `GET /api/files/...` (un `<img src>` no puede enviar cabeceras; los archivos se autorizan solo con su firma temporal, ver «Archivos»). Sin clave válida → `401 unauthorized`. Si `ACS_API_KEY` está vacía, el servidor solo debe aceptar conexiones desde `127.0.0.1` y avisar en el arranque. (b) **Producción multiusuario (Supabase):** cabecera `Authorization: Bearer <jwt>` emitido por Supabase Auth. El backend valida el JWT con `ACS_SUPABASE_SERVICE_ROLE_KEY` y extrae el `user_id`. Todas las entidades se filtran por `user_id` (RLS en Supabase o filtro en el backend). Si ambos `ACS_API_KEY` y Supabase están configurados, Supabase tiene prioridad.
 - **Errores:** siempre con este formato, sin trazas ni rutas internas:
 
 ```json
@@ -39,6 +39,7 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 ```json
 {
   "id": "uuid",
+  "user_id": "uuid | null",
   "name": "Luna",
   "visual_description": "Cabello rizado castaño, ojos verdes, pecas, piel morena clara",
   "invariant_traits": ["cabello rizado castaño", "ojos verdes", "pecas"],
@@ -67,7 +68,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 ### GenerationJob
 ```json
 {
-  "id": "uuid", "character_id": "uuid",
+  "id": "uuid", "user_id": "uuid | null", "character_id": "uuid",
   "prompt": "…", "negative_prompt": "",
   "seed": 123456789,
   "width": 768, "height": 768,
@@ -166,6 +167,30 @@ Validación de subida: tipo real verificado con Pillow (no solo la extensión), 
 
 ### Archivos
 `GET /api/files/{kind}/{filename}?exp=&sig=` — `kind` ∈ `references`, `outputs`, `thumbnails`. Verifica la firma HMAC y la caducidad; protege contra recorrido de rutas (`..`, rutas absolutas). Devuelve el archivo con `Cache-Control: private, max-age=300` y `X-Content-Type-Options: nosniff`. Firma/caducidad inválida → `403`; archivo inexistente → `404`.
+
+**Almacenamiento:** el backend puede usar disco local (prototipo) o **Supabase Storage** (producción). En modo Supabase, los archivos se suben a buckets `references`, `outputs` y `thumbnails`. El backend genera URLs firmadas (HMAC, como arriba) que proxeen el archivo desde Supabase Storage, o devuelve signed URLs de Supabase directamente. El frontend no distingue entre ambos: usa `fileUrl()` igual. La migración de disco a Supabase no rompe el contrato.
+
+## Configuración de Supabase (producción)
+
+Variables de entorno del backend:
+```
+ACS_SUPABASE_URL=https://xxx.supabase.co
+ACS_SUPABASE_ANON_KEY=eyJ...
+ACS_SUPABASE_SERVICE_ROLE_KEY=eyJ...   # solo backend, nunca al cliente
+```
+
+**Buckets de Storage:**
+| Bucket | Uso | Público |
+|---|---|---|
+| `references` | Imágenes de referencia de personajes | No (signed URLs) |
+| `outputs` | Imágenes generadas | No (signed URLs) |
+| `thumbnails` | Miniaturas | No (signed URLs) |
+
+**RLS (Row Level Security):** cada tabla (`characters`, `reference_images`, `generation_jobs`, `generation_artifacts`) tiene política `user_id = auth.uid()`. En modo desarrollo (sin Supabase), `user_id` es `null` y no se aplica filtro.
+
+**Auth en el frontend:** el cliente usa el SDK de Supabase (`@supabase/supabase-js`) para login/registro. El JWT se envía como `Authorization: Bearer <token>`. El backend valida el token y extrae `user_id`. Si Supabase no está configurado, se usa `X-API-Key` como antes.
+
+**Realtime (opcional, v2):** Supabase Realtime puede notificar cambios de estado de jobs en tiempo real, reemplazando el polling del frontend. No se implementa en v1; se mantiene polling con `useJobPolling`.
 
 ## Motores (adaptadores)
 
