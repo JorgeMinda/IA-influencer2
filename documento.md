@@ -183,6 +183,18 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - Impacto: SQLite → Supabase; FreeLLMAPI deja de estar diferido. Pendiente revisar `docs/api-contracts.md` y `docs/architecture.md` antes de escribir backend.
 - Estado: ⬜ sin código nuevo en esta entrada.
 
+### 2026-10-28 — Revisión del contrato API para Supabase
+- **Qué cambió:**
+  - `docs/api-contracts.md`: auth dual (API key dev / Supabase JWT prod), almacenamiento Supabase Storage (buckets + RLS), campo `user_id` en Character y GenerationJob, sección de configuración Supabase (env vars, buckets, RLS, Realtime opcional).
+  - `apps/frontend/src/types/index.ts`: añadido `user_id: string | null` a Character y GenerationJob.
+  - `.env.example`: añadidas variables `ACS_SUPABASE_URL`, `ACS_SUPABASE_ANON_KEY`, `ACS_SUPABASE_SERVICE_ROLE_KEY`.
+- **Evidencia:**
+  - `npx tsc --noEmit` → 0 errores (frontend compila con los nuevos tipos).
+  - `git diff` → 3 archivos modificados, 33 inserciones.
+- **Estado:** ✅ contrato revisado y adaptado para Supabase.
+- **Pendiente:** backend FastAPI con cliente Supabase, adaptador Cloudflare Workers AI, specs del PC.
+- **Decisiones:** auth dual (API key para dev, JWT para prod); Supabase Storage con proxy HMAC; RLS por user_id.
+
 ---
 
 ## 7. Cómo se actualiza este documento
