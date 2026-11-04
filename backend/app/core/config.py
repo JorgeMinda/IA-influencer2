@@ -69,8 +69,35 @@ class Settings:
         return problems
 
 
+def _load_dotenv() -> dict[str, str]:
+    from pathlib import Path
+    out: dict[str, str] = {}
+    candidates = [
+        Path(".env"),
+        Path("backend/.env"),
+        Path(__file__).resolve().parents[2] / ".env",
+        Path(__file__).resolve().parents[1] / ".env",
+    ]
+    for p in candidates:
+        if p.is_file():
+            try:
+                for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    out.setdefault(k.strip(), v.strip().strip("'\""))
+            except Exception:
+                pass
+    return out
+
+
 def load_settings(environ: dict[str, str] | None = None) -> Settings:
-    e = os.environ if environ is None else environ
+    if environ is None:
+        file_env = _load_dotenv()
+        e = {**file_env, **os.environ}
+    else:
+        e = environ
     origins = tuple(o.strip() for o in e.get("ACS_CORS_ORIGINS", "").split(",") if o.strip())
     return Settings(
         env=e.get("ACS_ENV", "development"),

@@ -21,7 +21,7 @@ export class ApiError extends Error implements ApiErrorShape {
 /** Antepone la URL base a las rutas relativas /api/files/... (las absolutas se devuelven tal cual). */
 export function fileUrl(path: string | null | undefined): string {
   if (!path) return '';
-  if (/^https?:\/\//i.test(path)) return path;
+  if (/^(https?|data|blob):/i.test(path)) return path;
   return `${getBaseUrl()}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
