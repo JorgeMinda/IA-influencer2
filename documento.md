@@ -1,6 +1,6 @@
 # Documento vivo — AI Creator Studio
 
-**Última actualización:** 2026-10-28 · **Orquesta:** Claude · **Dueño del proyecto:** el usuario
+**Última actualización:** 2026-11-04 · **Orquesta:** Antigravity · **Dueño del proyecto:** el usuario
 **Para qué sirve:** (1) fijar el método con que se construye la app para que nada se dé por hecho sin comprobarlo, y (2) registrar cada avance y cada detalle. Se actualiza al cerrar cada tarea.
 
 ## Leyenda de evidencia
@@ -224,9 +224,12 @@ Se añade una entrada al cerrar cada tarea y cuando cambie una decisión. Las en
 | `16466f1` | 2026-10-28 | Generador gratuito en lugar de Seedream (Cloudflare FLUX.1 schnell y ComfyUI, sin validar). |
 | `7990f2c` | 2026-11-01 | **Contrato v1.1** (Bearer de Supabase, URLs firmadas, cuota diaria, `auto` ajustado, `/api/files` eliminado). **Backend** con config, errores, política de contenido, enrutamiento, motores (mock, Cloudflare, ComfyUI), imágenes, almacén en memoria y Supabase, servicio y `main.py` (22 rutas). `supabase/schema.sql` (tablas, RLS, buckets, cuota atómica). `docs/security.md`, `.env.example` nuevo, `backend/README.md`. 23 pruebas en verde; FastAPI sin ejecutar. |
 
+| `1514868` | 2026-11-03 | **Frontend completo + Backend fixes**: auth Supabase (Bearer token), `RequireAuth`, `LoginPage`, `SettingsPage` actualizada, corrección `fileUrl` para `data:` URIs, bug `@property` en `Settings`, cargador automático `.env`. 39 tests backend + 17 tests frontend en verde. Prueba e2e exitosa en navegador (personaje "Jade", 4 imágenes simuladas). |
+| `(pendiente)` | 2026-11-04 | **Cloudflare FLUX.1 schnell validado**: token de API configurado con permiso Workers AI. Primera imagen real generada (526 KB, ~8s). Motor confirmado `is_available()=True`. `.env.example` actualizado con comentarios. |
+
 ### Pendiente tras el último commit
-- Ejecutar el backend en el PC del usuario y pegar la salida de `pytest` y de `/api/health`.
-- Ejecutar `supabase/schema.sql` en un proyecto real.
-- Frontend: login con Supabase, cabecera `Bearer`, pantallas Estudio, Galería y Ajustes, estilos y pruebas.
-- Subir a GitHub (`JorgeMinda/land`): bloqueado hasta vincular la cuenta; el usuario recibió un `.bundle` y un `.zip`.
+- Prueba de generación end-to-end desde el navegador usando destino **"Nube"** con personaje real.
+- Revisar límite diario gratuito real de Cloudflare Workers AI (actualmente se asume 50/día).
 - Revisión independiente de seguridad.
+- ComfyUI: sin validar (requiere instancia local con GPU).
+
