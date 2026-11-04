@@ -1,6 +1,7 @@
 import type { ApiError as ApiErrorShape, ApiErrorBody } from '../types';
 import { setConnectionState } from './connection';
-import { getApiKey, getBaseUrl } from './settings';
+import { getBaseUrl } from './settings';
+import { getAccessToken, refreshSession } from './auth';
 
 export class ApiError extends Error implements ApiErrorShape {
   code: string;
@@ -62,10 +63,12 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError('http_error', `La API respondió con un error (HTTP ${res.status}).`, res.status, [], retry);
 }
 
-export async function request<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
+export async function request<T>(method: string, path: string, opts: RequestOptions = {}, isRetry = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  const key = getApiKey();
-  if (key) headers['X-API-Key'] = key;
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   let body: BodyInit | undefined;
   if (opts.form) {
@@ -83,6 +86,13 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
     if ((err as { name?: string })?.name === 'AbortError') throw err;
     if (opts.track !== false) setConnectionState('offline');
     throw new ApiError('network_error', 'No se pudo conectar con la API. Revisa que el servidor esté en marcha y la URL en Ajustes.', 0);
+  }
+
+  if (res.status === 401 && !isRetry) {
+    const newToken = await refreshSession();
+    if (newToken) {
+      return request<T>(method, path, opts, true);
+    }
   }
 
   if (!res.ok) {

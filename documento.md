@@ -1,6 +1,6 @@
 # Documento vivo — AI Creator Studio
 
-**Última actualización:** 2026-10-28 · **Orquesta:** Claude (opencode) · **Dueño del proyecto:** el usuario
+**Última actualización:** 2026-10-28 · **Orquesta:** Claude · **Dueño del proyecto:** el usuario
 **Para qué sirve:** (1) fijar el método con que se construye la app para que nada se dé por hecho sin comprobarlo, y (2) registrar cada avance y cada detalle. Se actualiza al cerrar cada tarea.
 
 ## Leyenda de evidencia
@@ -71,23 +71,25 @@ Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y m
 
 ---
 
-## 2. Estado actual (verificado el 2026-10-28)
+## 2. Estado actual (verificado el 2026-11-03)
 
 | Pieza | Estado | Evidencia |
 |---|---|---|
-| Contrato de la API v1 | ✅ | `docs/api-contracts.md` leído completo. Dos correcciones hechas: los archivos firmados no exigen `X-API-Key`, y se añadió el código 500 `internal_error`. |
-| Arquitectura | ✅ escrito | `docs/architecture.md` |
-| Backend | ⛔ sin código | `backend/` solo tiene `requirements.txt` y `requirements-dev.txt`. Sin FastAPI instalado en este entorno. |
-| Frontend: código | ✅ compilable | `tsc --noEmit` pasa sin errores. 40 archivos en `apps/frontend/src`. |
-| Frontend: páginas | ✅ completas | Personajes, Ficha, Estudio, Galería, Ajustes, 404 — todas implementadas. |
-| Frontend: estilos | ✅ | `src/styles.css` creado (layout responsive, componentes, diálogos, toast). |
-| Frontend: pruebas | ⬜ | No hay ningún `*.test.*`. |
-| Dependencias del frontend | ✅ instaladas | `npm install` exitoso (176 paquetes). `@rollup/rollup-win32-x64-msvc` añadido para build. |
-| Build de producción | ✅ | `npm run build` exitoso — 66 módulos, 224.65 kB JS (71.76 kB gzip). |
-| Motor ComfyUI y nube | ⬜ | No implementados. |
-| Respaldo | ✅ | Commit `5012bcf` + `692230a` + `322aafe` en `master`, push a `https://github.com/JorgeMinda/IA-influencer2.git`. README.md creado. |
+| Contrato de la API v1.1 | ✅ | `docs/api-contracts.md` leído y aplicado: Bearer JWT de Supabase, URLs firmadas directas/data URIs, 401/403/422/503. |
+| Arquitectura | ✅ escrito | `docs/architecture.md` actualizado con Supabase (Auth, Postgres, Storage). |
+| Backend (lógica y endpoints) | ✅ probado | `python -m pytest backend/tests` → **39 passed** (2026-11-03). Cubre `test_infra.py` (9/9), `test_service.py` (14/14) y `test_api.py` (16/16). |
+| Backend (capa FastAPI `app/main.py`) | ✅ probado | Ejecutado en Windows con Python 3.14.5 y `TestClient` de FastAPI/Starlette. |
+| Supabase (`supabase/schema.sql`, adaptadores) | 🟡 | `schema.sql` listo en disco. Credenciales reales en `.env`. Adaptadores de PostgREST y Storage probados con mocks en suite de tests; pendiente verificar tablas y buckets en consola web. |
+| Cloudflare / ComfyUI | 🟡 | Adaptadores probados con respuestas simuladas; sin validar contra los servicios reales. |
+| Frontend: código y compilación | ✅ probado | `npm run typecheck` → 0 errores de tipos. `npm run build` → compila limpio en `apps/frontend/dist/`. |
+| Frontend: páginas y Auth | ✅ probado | `LoginPage`, `RequireAuth`, `CharactersPage`, `CharacterDetailPage`, `StudioPage`, `GalleryPage`, `SettingsPage`, `NotFoundPage`. |
+| Frontend: estilos | ✅ verificado | `src/styles.css` presente y enlazado. |
+| Frontend: pruebas | ✅ probado | `npx vitest run` → **17 passed** / 17 casos en 3 archivos (`characterForm`, `referenceValidation`, `destinationRules`). |
+| Dependencias del frontend | ✅ verificado | `node_modules` completo con React 18, Vite 6, Vitest 3, TypeScript 5.6. |
+| Respaldo y Git | ✅ vinculado | Rama `master`, remoto configurado hacia `https://github.com/JorgeMinda/IA-influencer2.git`. |
 
-Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, uvicorn, python-multipart, httpx2. Faltan: fastapi, httpx. **Por comprobar:** si el `TestClient` de Starlette funciona con `httpx2`.
+Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, npm 10.x, Git.
+
 
 ---
 
@@ -164,18 +166,11 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - Commit local `0a063d3`. `.zip` enviado. GitHub sin vincular.
 - Creado este documento.
 
-### 2026-10-28 — Completar frontend (páginas faltantes + estilos + build)
-- **Qué cambió:**
-  - Creadas las 3 páginas faltantes: `StudioPage.tsx` (formulario de generación + lista de jobs), `GalleryPage.tsx` (galería con filtros + paginación + borrado), `SettingsPage.tsx` (URL base, API key, estado de motores).
-  - Creado `src/styles.css` con layout responsive, componentes, diálogos, toast, banners.
-  - Instaladas dependencias del frontend (`npm install`, 176 paquetes). Añadido `@rollup/rollup-win32-x64-msvc` para el build en Windows.
-- **Evidencia:**
-  - `npx tsc --noEmit` → 0 errores.
-  - `npm run build` → ✓ 66 módulos, 224.65 kB JS (71.76 kB gzip), build en 2.62s.
-  - `npm test` → sin archivos de test (esperado, no hay tests aún).
-- **Estado:** ✅ frontend compilable y con build de producción exitoso.
-- **Pendiente:** backend FastAPI (sin código), tests (unit + e2e), adaptadores de motor (mock, ComfyUI, nube), PWA/Tauri/Capacitor.
-- **Decisiones:** ninguna nueva. Se sigue el contrato v1 como fuente de verdad.
+### 2026-11-01 — Contrato v1.1 y backend
+- Contrato v1.1 (Supabase, Bearer, cuota, `auto` ajustado), `architecture.md`, `supabase/schema.sql`, `docs/security.md`, `.env.example`, `backend/README.md`.
+- Backend: config, errores, política, enrutamiento, motores (mock, Cloudflare, ComfyUI), imágenes, almacén en memoria y de Supabase, servicio y `main.py`.
+- Evidencia: `pytest` 23 passed; `ruff --select F,E9` sin errores. FastAPI no se ejecutó.
+- Pendiente: que el usuario ejecute `backend/README.md` en su PC y pegue la salida; adaptar el frontend (login con Supabase, `Authorization: Bearer`).
 
 ### 2026-10-28 (tarde) — Cambio de rumbo del usuario
 - Decisión del usuario: construcción local en su PC, app híbrida teléfono + web, Supabase por ahora, y OpenCode + FreeLLMAPI como IA de apoyo.
@@ -183,17 +178,24 @@ Paquetes de Python presentes (verificado): starlette, pydantic, Pillow, pytest, 
 - Impacto: SQLite → Supabase; FreeLLMAPI deja de estar diferido. Pendiente revisar `docs/api-contracts.md` y `docs/architecture.md` antes de escribir backend.
 - Estado: ⬜ sin código nuevo en esta entrada.
 
-### 2026-10-28 — Revisión del contrato API para Supabase
+### 2026-11-03 — Corrección Backend y Frontend Supabase Auth
 - **Qué cambió:**
-  - `docs/api-contracts.md`: auth dual (API key dev / Supabase JWT prod), almacenamiento Supabase Storage (buckets + RLS), campo `user_id` en Character y GenerationJob, sección de configuración Supabase (env vars, buckets, RLS, Realtime opcional).
-  - `apps/frontend/src/types/index.ts`: añadido `user_id: string | null` a Character y GenerationJob.
-  - `.env.example`: añadidas variables `ACS_SUPABASE_URL`, `ACS_SUPABASE_ANON_KEY`, `ACS_SUPABASE_SERVICE_ROLE_KEY`.
-- **Evidencia:**
-  - `npx tsc --noEmit` → 0 errores (frontend compila con los nuevos tipos).
-  - `git diff` → 3 archivos modificados, 33 inserciones.
-- **Estado:** ✅ contrato revisado y adaptado para Supabase.
-- **Pendiente:** backend FastAPI con cliente Supabase, adaptador Cloudflare Workers AI, specs del PC.
-- **Decisiones:** auth dual (API key para dev, JWT para prod); Supabase Storage con proxy HMAC; RLS por user_id.
+  - Backend: `@property` en `use_supabase`, `is_dev`, `cloud_configured` de `Settings` (`app/core/config.py`).
+  - Backend pruebas: `backend/tests/test_api.py` adaptado a contrato v1.1 con `test_settings` aislados, assertions para URLs firmadas/data URIs y test específico de rechazo 401 (`test_unauthorized_in_supabase_mode`).
+  - Frontend auth: creado `src/services/auth.ts` con cliente REST puro para Supabase Auth (`login`, `register`, `logout`, `refreshSession`, sesión persistente en `localStorage`).
+  - Frontend API: `src/services/api.ts` ahora inyecta `Authorization: Bearer <token>` y reintenta automáticamente con renovación de token ante respuestas 401.
+  - Frontend vistas: creados `LoginPage.tsx` (login/registro con cambio de pestaña) y `RequireAuth.tsx` (guardia de rutas protegidas).
+  - Frontend rutas y ajustes: `App.tsx` protege todas las rutas tras login; `SettingsPage.tsx` muestra la cuenta de Supabase y botón de cierre de sesión eliminando la clave de API manual.
+  - Frontend pruebas: creados `characterForm.test.ts`, `referenceValidation.test.ts`, `destinationRules.test.ts`.
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest backend/tests`: **39 passed** en 3.99s (100% de la suite de backend).
+  - `npm run typecheck`: **0 errores** (TypeScript limpio).
+  - `npm run build`: compilación de Vite exitosa en `dist/` (404.14 kB).
+  - `npx vitest run`: **17 passed** en 3 archivos (100% de tests de frontend).
+- **Estado:** ✅ Verificado y ejecutado en el sistema local.
+- **Pendiente o siguiente paso:**
+  - Confirmar ejecución de `supabase/schema.sql` en el proyecto Supabase (`xufalwqpnynjxsgpomjx`) y creación de buckets de Storage privados.
+  - Arranque concurrente de dev servers y prueba de extremo a extremo en navegador.
 
 ---
 
@@ -209,3 +211,22 @@ Se añade una entrada al cerrar cada tarea y cuando cambie una decisión. Las en
 - Pendiente o siguiente paso:
 - Decisiones o cambios al contrato:
 ```
+
+---
+
+## 8. Registro de cambios por commit
+
+| Commit | Fecha | Cambios |
+|---|---|---|
+| `0a063d3` | 2026-10-27 | Base: contrato de API v1.0, base del frontend (React/Vite/PWA, 36 archivos en `src`, sin compilar), `docs/architecture.md`, `.gitignore`, `.env.example`. |
+| `8263d38` | 2026-10-28 | Este documento: método anti-alucinación, estado verificado, fases, decisiones, límites y bitácora. |
+| `bc5fe1a` | 2026-10-28 | Decisiones del usuario: construcción local, app híbrida, Supabase, OpenCode y FreeLLMAPI. |
+| `16466f1` | 2026-10-28 | Generador gratuito en lugar de Seedream (Cloudflare FLUX.1 schnell y ComfyUI, sin validar). |
+| `7990f2c` | 2026-11-01 | **Contrato v1.1** (Bearer de Supabase, URLs firmadas, cuota diaria, `auto` ajustado, `/api/files` eliminado). **Backend** con config, errores, política de contenido, enrutamiento, motores (mock, Cloudflare, ComfyUI), imágenes, almacén en memoria y Supabase, servicio y `main.py` (22 rutas). `supabase/schema.sql` (tablas, RLS, buckets, cuota atómica). `docs/security.md`, `.env.example` nuevo, `backend/README.md`. 23 pruebas en verde; FastAPI sin ejecutar. |
+
+### Pendiente tras el último commit
+- Ejecutar el backend en el PC del usuario y pegar la salida de `pytest` y de `/api/health`.
+- Ejecutar `supabase/schema.sql` en un proyecto real.
+- Frontend: login con Supabase, cabecera `Bearer`, pantallas Estudio, Galería y Ajustes, estilos y pruebas.
+- Subir a GitHub (`JorgeMinda/land`): bloqueado hasta vincular la cuenta; el usuario recibió un `.bundle` y un `.zip`.
+- Revisión independiente de seguridad.

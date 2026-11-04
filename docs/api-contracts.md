@@ -1,13 +1,16 @@
-# Contrato de la API v1 — AI Creator Studio
+# Contrato de la API v1.1 — AI Creator Studio
 
 Este documento es la fuente de verdad entre backend (FastAPI) y frontend (React).
 Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
+
+**v1.1 (2026-10-28):** los datos, la sesión y los archivos pasan a Supabase (supabase.com). FastAPI valida la sesión de Supabase, orquesta la generación y guarda los resultados en Supabase Storage. Cambios respecto a v1.0: autenticación por `Authorization: Bearer`, URLs de archivos firmadas por Supabase, motor de nube concreto (Cloudflare Workers AI, sin validar), cuota diaria y regla `auto` ajustada. Las entidades y los endpoints de personajes, referencias, generaciones y galería no cambian de forma.
 
 ## Convenciones
 
 - JSON UTF-8, claves en `snake_case`. Fechas ISO 8601 en UTC (`2026-10-27T15:30:00Z`).
 - IDs: UUID v4 como string.
-- **Autenticación:** modo dual. (a) **Desarrollo / un solo usuario:** cabecera `X-API-Key`. Si `ACS_API_KEY` está definida, es obligatoria en todas las rutas salvo `GET /api/health` y `GET /api/files/...` (un `<img src>` no puede enviar cabeceras; los archivos se autorizan solo con su firma temporal, ver «Archivos»). Sin clave válida → `401 unauthorized`. Si `ACS_API_KEY` está vacía, el servidor solo debe aceptar conexiones desde `127.0.0.1` y avisar en el arranque. (b) **Producción multiusuario (Supabase):** cabecera `Authorization: Bearer <jwt>` emitido por Supabase Auth. El backend valida el JWT con `ACS_SUPABASE_SERVICE_ROLE_KEY` y extrae el `user_id`. Todas las entidades se filtran por `user_id` (RLS en Supabase o filtro en el backend). Si ambos `ACS_API_KEY` y Supabase están configurados, Supabase tiene prioridad.
+- **Autenticación:** cabecera `Authorization: Bearer <access_token>` con el token de sesión de Supabase Auth. Obligatoria en todas las rutas salvo `GET /api/health`. El servidor valida el token con Supabase (`GET {SUPABASE_URL}/auth/v1/user`, sin validar contra un proyecto real) y obtiene el `user_id`. Sin token válido o caducado → `401 unauthorized`. Cada usuario solo ve y modifica sus propios datos: el servidor filtra siempre por `user_id`, y las tablas de Supabase tienen RLS como segunda barrera. La clave `service_role` vive solo en el servidor (`.env`) y nunca llega al cliente.
+- **Modo desarrollo sin Supabase:** con `ACS_ENV=development` y `SUPABASE_URL` vacío, el servidor usa un usuario fijo local y un almacén en memoria/disco, solo en `127.0.0.1`, y lo avisa en el arranque. Sirve para pruebas; no es un modo de producción.
 - **Errores:** siempre con este formato, sin trazas ni rutas internas:
 
 ```json
@@ -26,12 +29,13 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 | 422 | `validation_error` | Campos inválidos (`details` lista campo y motivo) |
 | 422 | `content_policy` | Prompt rechazado por la política de contenido |
 | 429 | `rate_limited` | Límite por minuto o tareas simultáneas (cabecera `Retry-After`) |
+| 429 | `quota_exceeded` | Se agotó la cuota diaria de generaciones en la nube (`ACS_DAILY_CLOUD_LIMIT`) |
 | 502 | `provider_error` | Falla del motor local o de la nube (mensaje genérico, sin secretos) |
 | 503 | `provider_unavailable` | Motor/proveedor no configurado o no disponible |
 | 500 | `internal_error` | Error no previsto. Mensaje genérico; el detalle solo va al log del servidor, sin claves ni prompts |
 
 - **Paginación:** `limit` (defecto 50, máx. 200) y `offset` (defecto 0). Las listas devuelven `{ "items": [...], "total": N }`.
-- **URLs de archivos:** los campos `image_url`, `thumbnail_url` y `url` son rutas relativas al servidor (empiezan por `/api/files/`) con firma temporal (`?exp=<unix>&sig=<hmac>`). Se pueden usar directo en `<img src>` anteponiendo la URL base. Caducan en 1 hora; si dan 403, se vuelve a pedir el recurso a la API.
+- **URLs de archivos:** los campos `image_url`, `thumbnail_url` y `url` son URLs absolutas `https://` firmadas por Supabase Storage (buckets privados). Se usan directo en `<img src>`. Caducan en 1 hora (`ACS_SIGNED_URL_TTL`); si dan error, se vuelve a pedir el recurso a la API, que genera una URL nueva. Los ejemplos de abajo con `/api/files/...` son de v1.0 y ya no se usan.
 
 ## Entidades
 
@@ -39,7 +43,6 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 ```json
 {
   "id": "uuid",
-  "user_id": "uuid | null",
   "name": "Luna",
   "visual_description": "Cabello rizado castaño, ojos verdes, pecas, piel morena clara",
   "invariant_traits": ["cabello rizado castaño", "ojos verdes", "pecas"],
@@ -68,7 +71,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 ### GenerationJob
 ```json
 {
-  "id": "uuid", "user_id": "uuid | null", "character_id": "uuid",
+  "id": "uuid", "character_id": "uuid",
   "prompt": "…", "negative_prompt": "",
   "seed": 123456789,
   "width": 768, "height": 768,
@@ -114,7 +117,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 | Ruta | Respuesta |
 |---|---|
 | `GET /api/health` (pública) | `{ "status": "ok", "version": "0.1.0", "time": "…" }` |
-| `GET /api/providers/status` | `{ "local": {"enabled": false, "available": false, "detail": "…"}, "cloud": {"enabled": false, "provider": "ninguno", "configured": false, "detail": "…"}, "mock": {"enabled": true, "detail": "Motor simulado para desarrollo"}, "limits": {"max_upload_mb": 8, "max_concurrent_jobs": 2, "rate_limit_per_minute": 60} }` — nunca incluye secretos. |
+| `GET /api/providers/status` | `{ "local": {"enabled": false, "available": false, "detail": "…"}, "cloud": {"enabled": false, "provider": "cloudflare", "configured": false, "detail": "…"}, "mock": {"enabled": true, "detail": "Motor simulado para desarrollo"}, "limits": {"max_upload_mb": 8, "max_concurrent_jobs": 2, "rate_limit_per_minute": 60} }` — nunca incluye secretos. |
 
 ### Personajes
 | Ruta | Descripción |
@@ -150,8 +153,9 @@ Validación de subida: tipo real verificado con Pillow (no solo la extensión), 
 1. `destination=local`: exige motor local habilitado y disponible; si no → `503 provider_unavailable`.
 2. `destination=cloud`: exige nube habilitada y configurada **y** `confirm_cloud=true`; si falta la confirmación → `403 confirmation_required`; si no está configurada → `503`.
 3. `destination=mock`: motor simulado (desarrollo/pruebas). Siempre disponible.
-4. `destination=auto`: usa local si está habilitado y disponible; si no, usa mock. **Nunca usa la nube** (no se envían imágenes privadas a un tercero sin elección informada).
-5. Si hay referencias del personaje y el destino es nube, solo se envían si el usuario confirmó con `confirm_cloud=true`.
+4. `destination=auto`: usa local si está habilitado y disponible; si no, usa la nube **solo si** el dueño del servidor activó `ACS_ALLOW_CLOUD_AUTO=true` (por defecto `false`) y la nube está configurada; si no, usa mock. En `auto` por nube solo viaja el texto del prompt, nunca imágenes de referencia.
+5. Las imágenes de referencia nunca se envían a un motor de nube sin `confirm_cloud=true`. El motor de nube actual (Cloudflare, FLUX.1 schnell) no declara soporte de referencias (`supports_references=false`), así que no las recibe aunque se confirme; el trabajo guarda en `metadata.params.references_sent=false`.
+8. Cuota: las generaciones en la nube cuentan contra `ACS_DAILY_CLOUD_LIMIT` por usuario y día UTC (defecto 50, conservador; el cupo gratuito real de Cloudflare no está confirmado). Al superarlo → `429 quota_exceeded`.
 6. Reintentos automáticos: máximo 2 por errores transitorios en local/mock, **ninguno** automático en nube (evita duplicar tareas con coste). El usuario puede usar `/retry`.
 7. Tareas simultáneas limitadas por `ACS_MAX_CONCURRENT_JOBS`; el resto queda `pending` en cola. El límite por minuto devuelve `429`.
 
@@ -165,39 +169,20 @@ Validación de subida: tipo real verificado con Pillow (no solo la extensión), 
 | `PATCH /api/artifacts/{id}` | Cuerpo: `selected?`, `note?` (0–1000) |
 | `DELETE /api/artifacts/{id}?confirm=true` | Borra imagen y miniatura. → `204` |
 
-### Archivos
-`GET /api/files/{kind}/{filename}?exp=&sig=` — `kind` ∈ `references`, `outputs`, `thumbnails`. Verifica la firma HMAC y la caducidad; protege contra recorrido de rutas (`..`, rutas absolutas). Devuelve el archivo con `Cache-Control: private, max-age=300` y `X-Content-Type-Options: nosniff`. Firma/caducidad inválida → `403`; archivo inexistente → `404`.
+### Archivos (Supabase Storage)
+Ya no existe `GET /api/files/...`. Los archivos viven en buckets privados de Supabase: `references`, `outputs`, `thumbnails`, con rutas `<user_id>/<uuid>.<ext>`. El servidor sube los archivos con `service_role` y entrega URLs firmadas de 1 hora. Un usuario solo puede leer los objetos de su carpeta (políticas de Storage). Las subidas se validan igual que en v1.0 (Pillow, reencode, sin EXIF, nombre UUID).
 
-**Almacenamiento:** el backend puede usar disco local (prototipo) o **Supabase Storage** (producción). En modo Supabase, los archivos se suben a buckets `references`, `outputs` y `thumbnails`. El backend genera URLs firmadas (HMAC, como arriba) que proxeen el archivo desde Supabase Storage, o devuelve signed URLs de Supabase directamente. El frontend no distingue entre ambos: usa `fileUrl()` igual. La migración de disco a Supabase no rompe el contrato.
+## Datos (Supabase Postgres)
 
-## Configuración de Supabase (producción)
-
-Variables de entorno del backend:
-```
-ACS_SUPABASE_URL=https://xxx.supabase.co
-ACS_SUPABASE_ANON_KEY=eyJ...
-ACS_SUPABASE_SERVICE_ROLE_KEY=eyJ...   # solo backend, nunca al cliente
-```
-
-**Buckets de Storage:**
-| Bucket | Uso | Público |
-|---|---|---|
-| `references` | Imágenes de referencia de personajes | No (signed URLs) |
-| `outputs` | Imágenes generadas | No (signed URLs) |
-| `thumbnails` | Miniaturas | No (signed URLs) |
-
-**RLS (Row Level Security):** cada tabla (`characters`, `reference_images`, `generation_jobs`, `generation_artifacts`) tiene política `user_id = auth.uid()`. En modo desarrollo (sin Supabase), `user_id` es `null` y no se aplica filtro.
-
-**Auth en el frontend:** el cliente usa el SDK de Supabase (`@supabase/supabase-js`) para login/registro. El JWT se envía como `Authorization: Bearer <token>`. El backend valida el token y extrae `user_id`. Si Supabase no está configurado, se usa `X-API-Key` como antes.
-
-**Realtime (opcional, v2):** Supabase Realtime puede notificar cambios de estado de jobs en tiempo real, reemplazando el polling del frontend. No se implementa en v1; se mantiene polling con `useJobPolling`.
+Tablas: `characters`, `reference_images`, `generation_jobs`, `generation_artifacts`, `usage_daily`. Todas con columna `user_id uuid references auth.users` y RLS activa (`user_id = auth.uid()`). El esquema está en `supabase/schema.sql`. Borrar un personaje borra en cascada sus filas y el servidor elimina los objetos de Storage.
 
 ## Motores (adaptadores)
 
-Interfaz común en el backend (`ImageEngine`): `name`, `is_available() -> (bool, detalle)`, `generate(request) -> list[bytes de imagen] + metadatos`. Implementaciones:
+Interfaz común en el backend (`ImageEngine`): `name`, `supports_references`, `is_available() -> (bool, detalle)`, `generate(request) -> list[bytes de imagen] + metadatos`. Implementaciones:
 
-- `mock` — genera una imagen determinista (según semilla y prompt) con Pillow, marcada visualmente como "SIMULADO". Permite probar todo el flujo sin GPU.
+- `mock` — imagen determinista (según semilla y prompt) con Pillow, marcada «SIMULADO». Permite probar todo el flujo sin GPU ni red.
+- `cloudflare` — Cloudflare Workers AI, modelo FLUX.1 schnell (texto a imagen), con `ACS_CLOUDFLARE_ACCOUNT_ID` y `ACS_CLOUDFLARE_API_TOKEN`. Desactivado por defecto. Cupo gratuito (según una guía secundaria, 10 000 Neurons/día) **sin verificar en la documentación oficial**. **No validado contra la API real en esta entrega.** No soporta semilla ni referencias garantizadas: la semilla se guarda en los metadatos pero el motor puede ignorarla.
 - `comfyui` — habla con `ACS_COMFYUI_URL` (`/prompt`, `/history`, `/view`) usando el flujo JSON de `workflows/image-generation/`. Desactivado por defecto. **No validado contra una instancia real en esta entrega.**
-- `cloud_images` — adaptador genérico por proveedor, desactivado por defecto. Sin proveedor elegido hasta revisar cuota, privacidad y condiciones.
+- Seedream y otros proveedores de pago quedan fuera por ahora.
 
 `openjarvis/` y `llm_router/` son carpetas reservadas (fase 9); no se implementan en este prototipo.

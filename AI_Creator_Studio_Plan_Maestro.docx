@@ -1,0 +1,531 @@
+AI CREATOR STUDIO  |  DOCUMENTO BASE DEL PROYECTO
+
+**AI CREATOR STUDIO**
+
+Plan maestro de producto, arquitectura y desarrollo
+
+Plataforma web · Windows · Android · iPhone
+PWA y aplicaciones instalables · Generación de imágenes híbrida
+
+*Objetivo: construir un prototipo funcional con herramientas gratuitas,*
+*priorizando consistencia visual de personajes y seguridad desde el inicio.*
+
+# Control del documento
+
+| **Campo** | **Detalle** |
+| --- | --- |
+| Nombre del proyecto | AI Creator Studio |
+| Tipo de documento | Documento maestro de visión, arquitectura y hoja de ruta |
+| Versión | 1.0 |
+| Fecha | 27 de octubre de 2026 |
+| Estado | Planificación; no representa una aplicación ya implementada |
+| Plataformas objetivo | Web/PWA, Windows, Android y iOS |
+| Prioridades | Prototipo gratuito, personajes virtuales consistentes, seguridad web, reutilización de código |
+
+## Cómo leer este documento
+
+Este documento reúne las decisiones y propuestas discutidas hasta el momento. Distingue entre objetivos acordados, tecnologías recomendadas y aspectos que deben validarse mediante pruebas. No afirma que se haya implementado o probado ningún módulo.
+
+# Resumen ejecutivo
+
+AI Creator Studio se plantea como una plataforma para crear y administrar personajes virtuales, generar imágenes, conservar referencias y organizar resultados desde una interfaz común. El mismo producto debe ser accesible mediante navegador, PWA, aplicación de Windows y aplicaciones móviles para Android e iPhone.
+
+La estrategia consiste en reutilizar React y TypeScript para la interfaz, utilizar FastAPI como API de coordinación y separar la generación de imágenes en adaptadores intercambiables. El procesamiento podrá ejecutarse en un PC Windows mediante ComfyUI o en un proveedor de nube compatible, según disponibilidad, calidad, recursos y coste.
+
+La meta de coste cero corresponde al prototipo y depende de usar software gratuito, hardware disponible y cuotas gratuitas cuando existan. No garantiza coste cero para publicación en tiendas, alojamiento, consumo eléctrico, hardware o servicios de nube.
+
+# 1. Visión y objetivos
+
+## 1.1 Visión del producto
+
+Crear una herramienta multiplataforma que permita diseñar personajes virtuales, conservar sus rasgos visuales y generar imágenes de forma organizada, con una ruta local y otra en la nube.
+
+## 1.2 Objetivos iniciales
+
+Construir una interfaz adaptable a pantallas de escritorio, tableta y teléfono.
+
+Crear, editar y organizar fichas de personajes virtuales.
+
+Guardar imágenes de referencia, prompts, parámetros y resultados.
+
+Conectar un motor de generación local y dejar preparada una interfaz para proveedores de nube.
+
+Probar técnicas de referencia visual para mejorar la consistencia del personaje.
+
+Aplicar controles de seguridad a cuentas, archivos, claves y acceso remoto.
+
+Mantener una arquitectura modular que permita reemplazar motores o proveedores sin rehacer la aplicación.
+
+## 1.3 Alcance del primer prototipo
+
+Gestión básica de personajes.
+
+Biblioteca de referencias y galería de resultados.
+
+Formulario de generación de imágenes.
+
+Estados de tareas: pendiente, en proceso, completada o fallida.
+
+Selección de destino local o nube cuando estén configurados.
+
+PWA adaptable y pruebas iniciales en dispositivos.
+
+API y almacenamiento iniciales para un solo usuario o entorno de desarrollo.
+
+## 1.4 Fuera del alcance inicial
+
+Entrenar un modelo de IA propio desde cero.
+
+Generación de vídeo, marketplace o publicación automática en redes sociales.
+
+Facturación, suscripciones comerciales y sistema multiusuario completo.
+
+Garantizar identidad facial perfecta en todas las imágenes.
+
+Prometer uso ilimitado de proveedores gratuitos.
+
+Integrar OpenJarvis y FreeLLMAPI antes de estabilizar los módulos esenciales.
+
+# 2. Plataformas y experiencia de uso
+
+| **Plataforma** | **Forma de entrega** | **Responsabilidad principal** | **Notas** |
+| --- | --- | --- | --- |
+| Web | Aplicación en navegador | Acceso principal a funciones y proyectos | Necesita backend accesible y autenticado si se usa fuera del PC. |
+| PWA | Instalable desde navegador compatible | Acceso rápido, icono y experiencia tipo aplicación | El soporte de instalación y capacidades varía según navegador y sistema. |
+| Windows | Aplicación de escritorio con Tauri | Uso de escritorio y acceso controlado a recursos locales | No debe exponer servicios locales sin autenticación. |
+| Android | Aplicación empaquetada con Capacitor | Interfaz móvil instalable | Pruebas en dispositivos reales y permisos mínimos. |
+| iPhone/iOS | PWA inicialmente; Capacitor para app nativa | Experiencia móvil en iPhone | La compilación nativa normalmente requiere macOS/Xcode; la publicación puede implicar requisitos y pagos. |
+
+Principio de diseño: compartir la mayor cantidad posible de interfaz y lógica de presentación. Las funciones específicas de cada sistema operativo se encapsularán en adaptadores, sin duplicar innecesariamente toda la aplicación.
+
+# 3. Arquitectura propuesta
+
+Flujo general: cliente web/móvil/escritorio → API central segura → gestión de usuarios, personajes y tareas → adaptador de generación local o de nube → almacenamiento de resultados → galería y ficha del personaje.
+
+| **Capa** | **Tecnología propuesta** | **Responsabilidad** |
+| --- | --- | --- |
+| Interfaz | React + TypeScript | Pantallas, formularios, navegación, estados de tarea y galería. |
+| PWA | Manifest + service worker | Instalación web y recursos estáticos; no sustituye al backend. |
+| Móvil | Capacitor | Empaquetado Android/iOS y acceso controlado a capacidades nativas. |
+| Escritorio | Tauri | Empaquetado Windows y funciones locales cuando sean necesarias. |
+| API | Python + FastAPI | Validación, autorización, lógica de negocio y coordinación de tareas. |
+| Persistencia inicial | SQLite | Datos estructurados del prototipo. |
+| Archivos | Sistema de archivos local inicialmente | Referencias, imágenes generadas y miniaturas. |
+| Motor local | ComfyUI | Ejecución de flujos de generación de imágenes compatibles. |
+| Proveedor de nube | Adaptador por proveedor | Envío de tareas, control de límites y recuperación de resultados. |
+| IA de texto/agentes | OpenJarvis y/o FreeLLMAPI, opcionales | Asistencia y enrutamiento de modelos de lenguaje cuando se valide su utilidad. |
+
+## 3.1 Principios arquitectónicos
+
+Separación entre interfaz, API, persistencia e integraciones.
+
+Contratos API explícitos y versionados.
+
+Adaptadores independientes para motores de imágenes y proveedores.
+
+Tareas asíncronas para trabajos que puedan tardar varios minutos.
+
+Configuración por variables de entorno y secretos fuera del repositorio.
+
+Evitar dependencias obligatorias de un único proveedor comercial.
+
+Registrar errores técnicos sin almacenar claves, tokens o datos sensibles.
+
+# 4. Estructura inicial del repositorio
+
+ai-creator-studio/
+├── apps/
+│   ├── frontend/                 # React + TypeScript compartido
+│   │   └── src/
+│   │       ├── components/
+│   │       ├── pages/
+│   │       ├── features/
+│   │       │   ├── characters/
+│   │       │   ├── image-studio/
+│   │       │   ├── gallery/
+│   │       │   └── settings/
+│   │       ├── services/
+│   │       └── types/
+│   ├── mobile/                   # Configuración Capacitor
+│   └── desktop/                  # Configuración Tauri
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── repositories/
+│   │   ├── services/
+│   │   ├── integrations/
+│   │   │   ├── comfyui/
+│   │   │   ├── cloud_images/
+│   │   │   ├── openjarvis/
+│   │   │   └── llm_router/
+│   │   └── main.py
+│   └── tests/
+├── workflows/
+│   └── image-generation/
+├── data/
+│   ├── characters/
+│   ├── references/
+│   ├── outputs/
+│   └── thumbnails/
+├── docs/
+│   ├── architecture.md
+│   ├── security.md
+│   └── api-contracts.md
+├── scripts/
+├── .env.example
+├── .gitignore
+└── README.md
+
+La estructura es una propuesta de organización. No es obligatorio crear todas las carpetas en la primera sesión; se añadirán cuando cada módulo exista.
+
+# 5. Módulos funcionales
+
+## 5.1 Gestión de personajes
+
+Crear, editar, archivar y duplicar fichas.
+
+Asignar un identificador estable a cada personaje.
+
+Guardar descripción visual, atributos relevantes y notas.
+
+Vincular referencias visuales autorizadas.
+
+Conservar versiones y resultados seleccionados.
+
+## 5.2 Estudio de imágenes
+
+Editor de prompt y parámetros compatibles con el motor.
+
+Selector de destino: automático, PC local o nube.
+
+Prioridad de trabajo: rapidez, equilibrio o calidad.
+
+Estado de tarea, errores comprensibles y opción de reintento.
+
+Confirmación del proveedor y posibles límites antes de ejecutar tareas costosas.
+
+## 5.3 Galería
+
+Vista de miniaturas y detalle de imagen.
+
+Filtros por personaje, fecha, motor y estado.
+
+Descarga y organización de resultados.
+
+Registro de prompt, modelo, semilla, parámetros y versión del flujo cuando el motor los proporcione.
+
+## 5.4 Conexiones y configuración
+
+Estado del motor local y conectividad del backend.
+
+Configuración de proveedores mediante backend seguro.
+
+Preferencias de generación y límites de tareas.
+
+Diagnóstico de errores sin revelar secretos.
+
+# 6. Consistencia visual de personajes
+
+La consistencia visual será un objetivo medible, no una promesa absoluta. Una semilla fija no garantiza por sí sola que el rostro, proporciones y detalles permanezcan idénticos entre escenas.
+
+## 6.1 Datos por personaje
+
+ID estable y nombre interno.
+
+Descripción visual de rasgos que se desea conservar.
+
+Referencias aprobadas y su procedencia/permiso de uso.
+
+Modelo, versión, semilla y parámetros de cada generación.
+
+Prompt positivo y negativo cuando el flujo lo soporte.
+
+Flujo de trabajo y técnica de referencia utilizada.
+
+Resultados elegidos y anotaciones sobre desviaciones visuales.
+
+## 6.2 Flujo de consistencia
+
+Crear la ficha del personaje y definir sus rasgos invariantes.
+
+Generar un conjunto inicial de imágenes.
+
+Seleccionar y guardar referencias representativas.
+
+Generar nuevas escenas con la técnica de referencia compatible con el modelo.
+
+Comparar resultados en retrato, plano medio, cuerpo completo y escenarios distintos.
+
+Guardar los mejores resultados y revisar el prompt o flujo cuando haya desviaciones.
+
+## 6.3 Evaluación inicial
+
+Preparar un conjunto de pruebas con varios ángulos y escenas. Revisar semejanza facial, cabello, color de ojos, proporciones, manos y errores anatómicos. La comparación puede empezar de forma manual; métricas automáticas se añadirán solo si aportan valor y son compatibles con el uso previsto.
+
+# 7. Generación híbrida: PC y nube
+
+## 7.1 Ruta local
+
+ComfyUI se propone como motor local por su enfoque modular y sus flujos de trabajo. El backend deberá comunicarse con una instancia configurada y controlar la disponibilidad, la cola, los resultados y los errores. El rendimiento depende de CPU, GPU, memoria, modelo y resolución.
+
+## 7.2 Ruta de nube
+
+La nube se integrará mediante un adaptador por proveedor. Antes de seleccionarlo se revisarán disponibilidad real, límites gratuitos vigentes, licencia, política de privacidad, retención de imágenes, condiciones comerciales y mecanismo de autenticación. No se presupone que un proveedor concreto sea siempre gratuito.
+
+## 7.3 Enrutamiento
+
+Validar usuario, parámetros, tamaño y formato solicitado.
+
+Consultar disponibilidad del motor local y requisitos mínimos del flujo.
+
+Si el destino elegido es local y viable, enviar la tarea al PC.
+
+Si el destino es automático, intentar la ruta local solo si está habilitada y cumple los requisitos.
+
+Usar nube únicamente si está configurada, el usuario lo permite y el proveedor acepta la solicitud.
+
+Guardar estado, identificador del proveedor, resultado y metadatos necesarios.
+
+Aplicar reintentos limitados y evitar duplicar tareas que puedan tener coste.
+
+El modo automático no debe enviar imágenes privadas a un proveedor externo sin una elección informada del usuario. La disponibilidad y los límites deben mostrarse con claridad.
+
+# 8. Integraciones de IA
+
+| **Componente** | **Uso considerado** | **Condición antes de integrar** |
+| --- | --- | --- |
+| ComfyUI | Generación local de imágenes | Validar hardware, modelo, licencia, API y flujo. |
+| Proveedor de imágenes en nube | Generación alternativa o complementaria | Confirmar cuota, privacidad, precio y condiciones actuales. |
+| OpenJarvis | Explorar agentes y asistencia en tareas | Definir tareas concretas, permisos y compatibilidad del entorno. |
+| FreeLLMAPI | Enrutamiento de modelos de lenguaje | Verificar repositorio/fork exacto, mantenimiento, seguridad y proveedores soportados. |
+
+OpenJarvis y FreeLLMAPI son opcionales en el primer prototipo. Ninguno debe tratarse como sustituto automático del motor de imágenes. La selección final depende de pruebas técnicas y de las licencias aplicables.
+
+# 9. Seguridad y privacidad
+
+## 9.1 Controles mínimos
+
+Mantener claves y tokens exclusivamente en backend o almacén seguro del sistema operativo.
+
+No subir archivos .env ni credenciales al repositorio; incluir solo .env.example con valores ficticios.
+
+Usar autenticación y autorización antes de permitir acceso remoto.
+
+No exponer directamente ComfyUI ni FreeLLMAPI a Internet.
+
+Limitar tamaño, tipo y cantidad de archivos; validar rutas y nombres.
+
+Aplicar límites de solicitudes, tareas simultáneas y tamaño de resultados.
+
+Evitar ejecución arbitraria de comandos o flujos no autorizados desde el cliente.
+
+Separar los datos de cada usuario si se incorpora soporte multiusuario.
+
+Evitar registrar prompts o imágenes sensibles innecesariamente.
+
+Pedir confirmación antes de acciones destructivas, publicación externa o tareas potencialmente facturables.
+
+Documentar permisos y procedencia de imágenes de referencia.
+
+Revisar licencias, consentimiento y reglas contra suplantación o contenido abusivo.
+
+## 9.2 Acceso desde fuera de casa
+
+Para controlar el PC desde el teléfono no se abrirá un puerto público sin protección. Las opciones a evaluar son una API alojada con TLS y autenticación, o una VPN/túnel configurado con controles adecuados. La instancia local de ComfyUI debe quedar detrás de la capa protegida.
+
+## 9.3 Lista de verificación antes de publicar
+
+HTTPS y configuración segura de cookies/tokens según el método de sesión.
+
+Autorización por recurso, no solo autenticación general.
+
+Validación de entradas y límites de archivos.
+
+Gestión de errores sin exponer rutas internas, secretos o trazas completas al usuario.
+
+Dependencias actualizadas y revisión de vulnerabilidades.
+
+Pruebas de recuperación de datos y eliminación.
+
+Política de privacidad y condiciones de uso si se habilita acceso a terceros.
+
+# 10. Datos iniciales y contratos API
+
+La primera versión puede utilizar SQLite para entidades estructuradas y un directorio controlado para archivos. Si posteriormente se convierte en un servicio multiusuario, se evaluará una base de datos de servidor y almacenamiento de objetos.
+
+## 10.1 Entidades sugeridas
+
+| **Entidad** | **Campos iniciales orientativos** |
+| --- | --- |
+| Character | id, name, visual_description, created_at, updated_at |
+| ReferenceImage | id, character_id, storage_path, source_note, created_at |
+| GenerationJob | id, character_id, destination, status, prompt, created_at, completed_at, error_code |
+| GenerationArtifact | id, job_id, storage_path, thumbnail_path, metadata_json |
+| ProviderConfig | id, provider_type, enabled, public_settings; secretos fuera de SQLite cuando corresponda |
+
+## 10.2 Endpoints iniciales orientativos
+
+| **Método y ruta** | **Propósito** |
+| --- | --- |
+| GET /api/health | Comprobar estado básico de la API. |
+| GET /api/characters | Listar personajes autorizados. |
+| POST /api/characters | Crear personaje. |
+| GET /api/characters/{id} | Consultar ficha. |
+| PATCH /api/characters/{id} | Actualizar ficha. |
+| POST /api/characters/{id}/references | Añadir referencia validada. |
+| POST /api/generations | Crear tarea de generación. |
+| GET /api/generations/{id} | Consultar estado de tarea. |
+| GET /api/gallery | Consultar resultados con filtros. |
+| GET /api/providers/status | Consultar estado sin exponer secretos. |
+
+Las rutas son una propuesta inicial y pueden cambiar al definir los esquemas concretos. En producción, todas las rutas privadas necesitarán controles de acceso.
+
+# 11. Plan de desarrollo por fases
+
+| **Fase** | **Trabajo** | **Criterio de salida** |
+| --- | --- | --- |
+| 1. Fundamentos | Git, Node.js, Python, React, FastAPI, configuración y estructura base. | Frontend arranca; API responde; configuración y repositorio seguros. |
+| 2. Personajes | CRUD, SQLite, validación y referencias. | Se puede crear, editar y recuperar una ficha tras reiniciar. |
+| 3. Galería | Archivos, miniaturas, metadatos y filtros. | Las imágenes quedan organizadas y asociadas a personajes. |
+| 4. Motor local | Conectar ComfyUI, tareas y manejo de errores. | Una tarea real genera y devuelve una imagen en entorno compatible. |
+| 5. Consistencia | Referencias, parámetros reproducibles y conjunto de pruebas. | Se comparan resultados y se documentan limitaciones. |
+| 6. Nube | Adaptador de proveedor, límites, privacidad y selección de ruta. | La ruta de nube funciona sin acoplar la lógica central al proveedor. |
+| 7. PWA y empaquetado | Manifiesto, service worker, Capacitor y Tauri. | PWA probada; builds móviles/escritorio según entorno disponible. |
+| 8. Seguridad y preparación comercial | Pruebas, documentación, privacidad y revisión de licencias. | Lista de seguridad completada y limitaciones conocidas documentadas. |
+| 9. IA adicional | Evaluar OpenJarvis y FreeLLMAPI. | Integraciones justificadas por casos de uso y con permisos controlados. |
+
+# 12. Presupuesto y limitaciones
+
+| **Concepto** | **Situación del prototipo** |
+| --- | --- |
+| Frameworks y herramientas de código abierto | Pueden usarse sin coste de licencia, sujeto a sus licencias y condiciones. |
+| Desarrollo web local | Puede realizarse sin pagar alojamiento. |
+| PWA | Puede probarse localmente o alojarse en un plan gratuito si sigue disponible. |
+| Generación local | Sin tarifa por llamada de API, pero consume hardware, almacenamiento y electricidad. |
+| Generación en nube | Solo será $0 si el proveedor ofrece cuota gratuita suficiente; puede cambiar o agotarse. |
+| Publicación en tiendas | Puede requerir cuentas de desarrollador, pagos, dispositivos o herramientas específicas. |
+| Dominio, alojamiento y base de datos en producción | Pueden generar costes al crecer el uso. |
+
+Recomendación financiera: no contratar servicios ni comprar hardware durante la fase de estructura. Primero se validarán las herramientas gratuitas, el hardware existente y el valor del flujo principal.
+
+# 13. Requisitos de equipo por verificar
+
+Antes de instalar modelos locales hay que confirmar las especificaciones del PC. Los datos pendientes son:
+
+Sistema operativo y versión.
+
+RAM instalada.
+
+GPU y memoria de vídeo, si existe.
+
+Espacio libre en disco.
+
+Versiones instaladas de Python, Node.js y Git.
+
+Si existe acceso a un Mac para compilar iOS nativo; no es necesario para iniciar la PWA.
+
+No se debe descargar un modelo grande hasta conocer RAM, GPU y espacio disponible. Si el PC es limitado, se desarrollará primero el producto y se probará generación de nube solo con un proveedor que ofrezca condiciones adecuadas.
+
+# 14. Criterios de aceptación del primer prototipo
+
+La interfaz se adapta a escritorio y móvil sin perder funciones esenciales.
+
+La API puede iniciar y validar solicitudes.
+
+Un personaje puede crearse, editarse y recuperarse después de reiniciar.
+
+Se pueden añadir referencias y asociarlas al personaje.
+
+Una tarea de generación tiene estado y resultado consultables.
+
+La integración local funciona en el equipo compatible de prueba.
+
+La ruta de nube está aislada tras un adaptador y no expone claves al cliente.
+
+El usuario puede identificar dónde se procesará una imagen antes de enviarla.
+
+Las rutas de archivos y los límites de entrada se validan.
+
+Los secretos no aparecen en el repositorio ni en logs.
+
+Las limitaciones conocidas están documentadas.
+
+# 15. Decisiones pendientes
+
+| **Decisión** | **Por qué importa** | **Cómo resolverla** |
+| --- | --- | --- |
+| Especificaciones del PC | Determinan si la generación local es viable. | Recoger RAM, GPU y disco antes de instalar modelos. |
+| Modelo de imagen | Afecta calidad, consistencia, rendimiento y licencia. | Prueba comparativa con hardware real y usos previstos. |
+| Proveedor de nube | Afecta coste, privacidad, disponibilidad y límites. | Revisar condiciones actuales antes de implementar. |
+| Autenticación | Necesaria para acceso remoto seguro. | Definir si el prototipo es solo local o tendrá usuarios remotos. |
+| Almacenamiento remoto | Necesario para sincronizar proyectos entre dispositivos. | Empezar local y evaluar opción gratuita y segura para pruebas. |
+| Estrategia de sincronización | Evita divergencias entre PC y móvil. | Definir si los archivos viven en PC, nube o ambos. |
+| Publicación iOS | Requiere herramientas y posibles cuotas de desarrollador. | Comenzar con PWA; evaluar app nativa cuando haya valor validado. |
+
+# 16. Próximas acciones concretas
+
+Confirmar RAM, GPU y espacio libre del PC.
+
+Instalar o verificar Git, Node.js y Python en versiones compatibles.
+
+Crear el repositorio ai-creator-studio y el archivo README.
+
+Crear el frontend React + TypeScript y comprobar su visualización en un navegador móvil.
+
+Crear FastAPI con una ruta de salud y configuración por entorno.
+
+Implementar el CRUD de personajes con SQLite.
+
+Añadir subida validada de referencias y galería.
+
+Evaluar ComfyUI y el modelo compatible más ligero que permita el hardware.
+
+Definir el contrato de tareas antes de conectar un proveedor de nube.
+
+Probar PWA; después configurar Tauri y Capacitor.
+
+# 17. Glosario
+
+| **Término** | **Definición** |
+| --- | --- |
+| API | Interfaz mediante la cual dos componentes intercambian solicitudes y respuestas. |
+| Backend | Parte del sistema que aplica reglas, valida solicitudes y coordina datos e integraciones. |
+| PWA | Aplicación web que puede ofrecer instalación y algunas capacidades similares a una aplicación. |
+| Capacitor | Herramienta para empaquetar una aplicación web como aplicación móvil y conectar capacidades nativas. |
+| Tauri | Framework para crear aplicaciones de escritorio usando tecnologías web y componentes nativos. |
+| ComfyUI | Interfaz modular basada en flujos para ejecutar procesos de generación de imágenes compatibles. |
+| Adaptador | Componente que traduce la interfaz interna del proyecto a la API de un proveedor concreto. |
+| Semilla | Valor que ayuda a reproducir condiciones aleatorias de una generación; no garantiza identidad visual. |
+| Condicionamiento por referencia | Técnicas que utilizan imágenes de referencia para orientar la generación. |
+| TLS/HTTPS | Protección del tráfico de red mediante cifrado y autenticación del servidor. |
+
+# 18. Referencias oficiales para verificar
+
+Antes de instalar o publicar, consultar documentación actualizada porque los requisitos, límites y licencias pueden cambiar.
+
+**Capacitor: **https://capacitorjs.com/docs
+
+**Tauri: **https://tauri.app/
+
+**FastAPI: **https://fastapi.tiangolo.com/
+
+**ComfyUI: **https://docs.comfy.org/
+
+**OpenJarvis: **https://github.com/open-jarvis/OpenJarvis
+
+**FreeLLMAPI (verificar repositorio/fork exacto): **https://github.com/tashfeenahmed/freellmapi
+
+**Apple App Review Guidelines: **https://developer.apple.com/app-store/review/guidelines/
+
+**Apple Developer Program: **https://developer.apple.com/programs/
+
+# Conclusión
+
+AI Creator Studio se desarrollará por incrementos: primero estructura y gestión de personajes; luego generación local, consistencia visual, nube y empaquetado multiplataforma; finalmente, endurecimiento de seguridad e integraciones de agentes. El criterio principal será validar cada etapa con resultados comprobables, mantener los costes controlados y evitar depender de servicios que no se hayan verificado.
+
+Este documento es la línea base de planificación. Las tecnologías propuestas deben confirmarse con el diagnóstico del equipo y con pruebas de compatibilidad antes de considerarse decisiones definitivas.
+
+Documento de planificación técnica · Versión 1.0 · 27 de octubre de 2026

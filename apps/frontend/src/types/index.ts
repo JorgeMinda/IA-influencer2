@@ -12,7 +12,6 @@ export interface Paginated<T> {
 
 export interface Character {
   id: string;
-  user_id: string | null;
   name: string;
   visual_description: string;
   invariant_traits: string[];
@@ -71,7 +70,6 @@ export interface GenerationArtifact {
 
 export interface GenerationJob {
   id: string;
-  user_id: string | null;
   character_id: string;
   prompt: string;
   negative_prompt: string;

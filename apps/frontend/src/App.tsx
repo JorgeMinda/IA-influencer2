@@ -1,5 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { RequireAuth } from './components/RequireAuth';
+import { LoginPage } from './pages/LoginPage';
 import { CharactersPage } from './pages/CharactersPage';
 import { CharacterDetailPage } from './pages/CharacterDetailPage';
 import { StudioPage } from './pages/StudioPage';
@@ -11,14 +13,17 @@ import { NotFoundPage } from './pages/NotFoundPage';
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Navigate to="/personajes" replace />} />
-        <Route path="personajes" element={<CharactersPage />} />
-        <Route path="personajes/:id" element={<CharacterDetailPage />} />
-        <Route path="estudio" element={<StudioPage />} />
-        <Route path="galeria" element={<GalleryPage />} />
-        <Route path="ajustes" element={<SettingsPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<Layout />}>
+          <Route index element={<Navigate to="/personajes" replace />} />
+          <Route path="personajes" element={<CharactersPage />} />
+          <Route path="personajes/:id" element={<CharacterDetailPage />} />
+          <Route path="estudio" element={<StudioPage />} />
+          <Route path="galeria" element={<GalleryPage />} />
+          <Route path="ajustes" element={<SettingsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Route>
     </Routes>
   );

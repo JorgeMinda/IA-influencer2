@@ -1,64 +1,124 @@
-# AI Creator Studio
+# AI Creator Studio (Estudio de Creación de IA)
 
-Plataforma web para crear y administrar personajes virtuales, generar imágenes con consistencia visual, conservar referencias y organizar resultados.
+Plataforma para crear personajes virtuales y generar imágenes consistentes. 
+- **Fase actual:** Web / PWA.
+- **Fases futuras:** Escritorio Windows (Tauri) y Móvil Android / iOS (Capacitor).
+- **Stack tecnológico:**
+  - **Frontend:** React 18 + TypeScript + Vite + PWA
+  - **Backend:** FastAPI (Python 3.12+)
+  - **Plataforma de datos y nube:** Supabase (PostgreSQL con RLS, Supabase Auth y Supabase Storage)
+  - **Motores de generación:**
+    - `mock`: Motor simulado en memoria/disco con Pillow para desarrollo y pruebas rápidas sin GPU ni red.
+    - `cloudflare`: Cloudflare Workers AI (FLUX.1 schnell).
+    - `comfyui`: Instancia local de ComfyUI.
 
-**Stack:** React + TypeScript (Vite) · FastAPI · SQLite · ComfyUI (local) · PWA
+---
 
 ## Estructura del repositorio
 
 ```
 ai-creator-studio/
 ├── apps/
-│   └── frontend/          # React + TypeScript (Vite, PWA)
-├── backend/               # FastAPI (en construcción)
-├── data/                  # Archivos locales (referencias, outputs, thumbnails)
+│   └── frontend/          # React + TypeScript (Vite, PWA, Vitest)
+├── backend/               # FastAPI, lógica de negocio y suite de pruebas pytest
 ├── docs/
-│   ├── api-contracts.md   # Contrato de la API v1 (fuente de verdad)
-│   └── architecture.md    # Arquitectura y decisiones
-├── documento.md           # Documento vivo del proyecto
-├── .env.example           # Plantilla de variables de entorno
+│   ├── api-contracts.md   # Contrato de la API v1.1 (fuente de verdad)
+│   ├── architecture.md    # Arquitectura del sistema y flujo de datos
+│   ├── security.md        # Política de seguridad y manejo de credenciales
+│   └── documento.md       # Documento vivo con método anti-alucinaciones y bitácora
+├── supabase/
+│   └── schema.sql         # Esquema de tablas, RLS, buckets de Storage y cuotas
+├── .env.example           # Plantilla general de configuración
 └── README.md
 ```
 
-## Frontend
+---
 
-### Requisitos
+## Puesta en marcha en PC local (Windows / PowerShell)
 
-- Node.js 18+ (probado con 22.x)
-- npm 9+
+### 1. Supabase (supabase.com)
+1. Crea un proyecto en [supabase.com](https://supabase.com).
+2. Abre el **SQL Editor** en tu panel de Supabase y ejecuta el script [`supabase/schema.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/schema.sql).
+3. Asegúrate de tener creados los 3 buckets privados en **Storage**: `references`, `outputs` y `thumbnails`.
+4. Copia tu URL de proyecto (`SUPABASE_URL`), la `anon key` y la `service_role key`.
 
-### Instalación
+---
 
-```bash
-cd apps/frontend
-npm install
-```
+### 2. Backend (FastAPI)
 
-### Desarrollo
+1. Abre PowerShell y entra a la carpeta del backend:
+   ```powershell
+   cd backend
+   ```
+2. Si aún no tienes tu archivo `.env`, copia `.env.example`:
+   ```powershell
+   copy ..\.env.example .env
+   ```
+   Rellena en `.env` las variables de Supabase:
+   ```env
+   SUPABASE_URL=https://<tu-id>.supabase.co
+   SUPABASE_ANON_KEY=<tu-anon-key>
+   SUPABASE_SERVICE_ROLE_KEY=<tu-service-role-key>
+   ```
+3. Ejecutar las pruebas automatizadas (39/39 pruebas):
+   ```powershell
+   python -m pytest tests
+   ```
+4. Iniciar el servidor API de FastAPI:
+   ```powershell
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   - API de salud: `http://127.0.0.1:8000/api/health`
+   - Documentación interactiva (en desarrollo): `http://127.0.0.1:8000/api/docs`
 
-```bash
-npm run dev          # Vite dev server en http://localhost:5173
-npm run typecheck    # tsc --noEmit
-npm run build        # Build de producción
-npm run test         # Vitest (sin tests aún)
-```
+---
 
-### Configuración
+### 3. Frontend (React + Vite)
 
-Copia `apps/frontend/.env.example` a `apps/frontend/.env` y ajusta `VITE_API_BASE_URL` (por defecto `http://127.0.0.1:8000`).
+1. Abre otra ventana de PowerShell y entra a la carpeta del frontend:
+   ```powershell
+   cd apps\frontend
+   ```
+2. Configura tu `.env`:
+   ```powershell
+   copy .env.example .env
+   ```
+   Asegúrate de que tenga:
+   ```env
+   VITE_API_BASE_URL=http://127.0.0.1:8000
+   VITE_SUPABASE_URL=https://<tu-id>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<tu-anon-key>
+   ```
+3. Instalar dependencias (si no las tienes instaladas):
+   ```powershell
+   npm install
+   ```
+4. Verificar tipos y pruebas unitarias (17/17 casos):
+   ```powershell
+   npm run typecheck
+   npm test
+   ```
+5. Iniciar el servidor de desarrollo:
+   ```powershell
+   npm run dev
+   ```
+   Abre tu navegador en `http://localhost:5173`.
 
-La clave de acceso (`X-API-Key`) se configura en la pantalla de Ajustes del navegador.
+---
 
-## Backend
+## Flujo de uso
 
-En construcción. Dependencias en `backend/requirements.txt` y `backend/requirements-dev.txt`.
+1. **Acceso:** Entra en `http://localhost:5173/login`. Puedes registrar un usuario o iniciar sesión con tus credenciales de Supabase.
+2. **Personajes:** Crea tu personaje virtual en la pestaña **Personajes** indicando nombre, descripción visual y rasgos invariantes.
+3. **Referencias:** Sube imágenes de referencia representativas confirmando derechos y notas de procedencia.
+4. **Estudio:** En la pestaña **Estudio**, redacta el prompt y selecciona el motor de generación (`Simulado`, `PC local` o `Nube`).
+5. **Galería:** Consulta los resultados generados, márcalos como favoritos o descárgalos.
 
-## Documentación
+---
 
-- **Contrato API v1:** `docs/api-contracts.md` — fuente de verdad entre backend y frontend.
-- **Arquitectura:** `docs/architecture.md` — decisiones y fases.
-- **Documento vivo:** `documento.md` — bitácora y estado del proyecto.
+## Documentación de referencia
 
-## Licencia
-
-Pendiente de definir.
+- [Contrato de la API v1.1](file:///C:/Users/minda/Desktop/IA%20influencer2/docs/api-contracts.md)
+- [Documento vivo y bitácora de verificación](file:///C:/Users/minda/Desktop/IA%20influencer2/docs/documento.md)
+- [Arquitectura del sistema](file:///C:/Users/minda/Desktop/IA%20influencer2/docs/architecture.md)
+- [Seguridad y credenciales](file:///C:/Users/minda/Desktop/IA%20influencer2/docs/security.md)

@@ -11,8 +11,8 @@ Lo que no está validado se dice como tal.
 |---|---|---|---|
 | Interfaz | React + TypeScript, PWA | Next.js + React Native | React + TS con Vite (PWA); Tauri y Capacitor después, sin reescribir |
 | API | FastAPI | FastAPI | FastAPI |
-| Datos | SQLite | PostgreSQL | SQLite; migrar al pasar a multiusuario |
-| Archivos | Disco local | S3 / R2 | Disco local con URLs firmadas de 1 h |
+| Datos y sesión | SQLite | PostgreSQL | Supabase (supabase.com): Postgres + Auth, con RLS (decisión del usuario, 2026-10-28) |
+| Archivos | Disco local | S3 / R2 | Supabase Storage, buckets privados, URLs firmadas de 1 h |
 | Tareas | Asíncronas | Redis + Celery | Pool en proceso con límite de concurrencia |
 | Cobro y créditos | Fuera de alcance | Stripe + libro de créditos | Diferido |
 | Consistencia | Referencias + evaluación manual | LoRA entrenado | Referencias + lote de 4 pruebas; LoRA es una fase posterior |
@@ -25,21 +25,23 @@ Lo que no está validado se dice como tal.
 
 ```mermaid
 flowchart LR
-    C["Cliente<br/>web · PWA · (Tauri · Capacitor)"] --> API["API FastAPI<br/>auth · límites · validación"]
-    API --> DB[("SQLite")]
-    API --> FS["Archivos locales<br/>URLs firmadas"]
+    C["Cliente<br/>web · PWA · (Tauri · Capacitor)"] -->|login| SA["Supabase Auth"]
+    C -->|Bearer token| API["API FastAPI<br/>valida sesión · límites · cuota"]
+    API --> DB[("Supabase Postgres<br/>RLS por user_id")]
+    API --> FS["Supabase Storage<br/>buckets privados · URLs firmadas"]
     API --> Q["Ejecutor de tareas<br/>pool acotado"]
     Q --> R{"Enrutador<br/>local · nube · mock"}
     R --> M["mock<br/>imagen simulada"]
     R --> L["ComfyUI local<br/>(sin validar)"]
-    R --> N["Nube<br/>(sin proveedor)"]
+    R --> N["Cloudflare Workers AI<br/>FLUX.1 schnell (sin validar)"]
 ```
 
 ## Reglas que no se rompen
 1. El cliente solo habla con la API. Los secretos viven en el servidor.
 2. Ninguna generación es síncrona: se encola y se consulta su estado.
-3. «Automático» nunca usa la nube. La nube exige configuración y confirmación explícita del usuario.
-4. Las referencias del personaje solo salen a un tercero con confirmación.
+3. «Automático» usa la nube solo si el dueño del servidor lo activó (`ACS_ALLOW_CLOUD_AUTO`); si no, local o simulado. Hay cuota diaria por usuario.
+4. Las referencias del personaje solo salen a un tercero con confirmación. El motor de nube actual no las recibe.
+7. La clave `service_role` de Supabase y los tokens de nube viven solo en el `.env` del servidor.
 5. Los motores son adaptadores: cambiar de proveedor no toca la lógica central.
 6. Cada imagen guarda prompt, semilla, modelo, motor y versión del flujo.
 

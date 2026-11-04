@@ -1,19 +1,21 @@
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConnection } from '../hooks/useSettings';
 import { useProviders } from '../hooks/useProviders';
-import { getBaseUrl, getApiKey, saveSettings, resetSettings, isValidBaseUrl, defaultBaseUrl } from '../services/settings';
+import { getBaseUrl, saveSettings, resetSettings, isValidBaseUrl, defaultBaseUrl } from '../services/settings';
+import { getCurrentUser, logout } from '../services/auth';
 import { useToast } from '../components/Toast';
 import { ErrorNotice } from '../components/Feedback';
 import type { ProvidersStatus } from '../types';
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { notify } = useToast();
   const connection = useConnection();
   const { status, loading, error, reload } = useProviders();
   const [baseUrl, setBaseUrl] = useState(getBaseUrl());
-  const [apiKey, setApiKey] = useState(getApiKey());
   const [urlError, setUrlError] = useState<string | null>(null);
-
+  const user = getCurrentUser();
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,15 +24,20 @@ export function SettingsPage() {
       return;
     }
     setUrlError(null);
-    saveSettings(baseUrl, apiKey);
+    saveSettings(baseUrl, '');
     notify('Ajustes guardados.');
   }
 
   function handleReset() {
     resetSettings();
     setBaseUrl(defaultBaseUrl());
-    setApiKey('');
     notify('Ajustes restablecidos.');
+  }
+
+  async function handleLogout() {
+    await logout();
+    notify('Sesión cerrada.');
+    navigate('/login', { replace: true });
   }
 
   return (
@@ -39,10 +46,25 @@ export function SettingsPage() {
         <h1>Ajustes</h1>
       </div>
 
+      <section className="card stack" aria-label="Cuenta de usuario" style={{ marginBottom: '1.5rem' }}>
+        <h2>Cuenta de Supabase</h2>
+        <div className="field">
+          <p>
+            Usuario actual: <strong>{user?.email || 'Sesión local'}</strong>
+          </p>
+          {user?.id && <p className="hint">ID de usuario: <code>{user.id}</code></p>}
+        </div>
+        <div className="actions">
+          <button type="button" className="btn btn-danger" onClick={handleLogout}>
+            Cerrar sesión
+          </button>
+        </div>
+      </section>
+
       <form className="card stack" onSubmit={handleSubmit} noValidate aria-label="Ajustes de conexión">
         <h2>Conexión con la API</h2>
         <div className="field">
-          <label htmlFor="base-url">URL base del servidor</label>
+          <label htmlFor="base-url">URL base del backend (FastAPI)</label>
           <input
             id="base-url"
             className={`input${urlError ? ' is-invalid' : ''}`}
@@ -54,25 +76,12 @@ export function SettingsPage() {
           {urlError ? <p className="error-text">{urlError}</p> : null}
           <p className="hint">Por defecto: {defaultBaseUrl()}</p>
         </div>
-        <div className="field">
-          <label htmlFor="api-key">Clave de acceso (X-API-Key)</label>
-          <input
-            id="api-key"
-            className="input"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Dejar vacío en modo desarrollo"
-            autoComplete="off"
-          />
-          <p className="hint">Se guarda solo en este navegador. No se envía a ningún otro sitio.</p>
-        </div>
 
         <div className="field">
           <p>
             Estado de la conexión:{' '}
             <strong>
-              {connection === 'ok' ? 'Conectado' : connection === 'offline' ? 'Sin conexión' : connection === 'unauthorized' ? 'Clave inválida' : 'Desconocido'}
+              {connection === 'ok' ? 'Conectado' : connection === 'offline' ? 'Sin conexión' : connection === 'unauthorized' ? 'Sesión expirada o no autorizada' : 'Desconocido'}
             </strong>
           </p>
         </div>
