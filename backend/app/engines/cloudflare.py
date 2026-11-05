@@ -1,20 +1,20 @@
-"""Cloudflare Workers AI — FLUX.1 schnell (texto a imagen).
+"""Cloudflare Workers AI — FLUX.1 schnell (imagen) + Llama 3.1 (chat con streaming).
 
-ESTADO: escrito a partir de la documentación recordada; NO validado contra la API real.
-Puntos sin confirmar: ruta exacta, nombre del modelo, formato de la respuesta, parámetros
-admitidos (seed, tamaño, prompt negativo) y límite gratuito. Si la API real difiere, solo
-hay que ajustar este archivo (los demás módulos no dependen de estos detalles).
+IMAGEN: validado contra la API real (2026-11-04). Genera imágenes fotorrealistas.
+CHAT: validado contra la API real (2026-11-04). Streaming SSE con llama-3.1-8b-instruct.
 """
 from __future__ import annotations
 
 import base64
+from collections.abc import Generator
 from typing import Any, Callable
 
 from app.engines.base import EngineError, EngineResult, EngineTransientError, GenRequest
 
 MODEL_ID = "@cf/black-forest-labs/flux-1-schnell"
+LLM_MODEL_ID = "@cf/meta/llama-3.1-8b-instruct"
 API_BASE = "https://api.cloudflare.com/client/v4"
-STEPS = {"speed": 4, "balanced": 4, "quality": 8}   # sin verificar el máximo admitido
+STEPS = {"speed": 4, "balanced": 4, "quality": 8}
 
 
 class CloudflareEngine:
@@ -73,3 +73,49 @@ class CloudflareEngine:
                     "seed_applied": False, "negative_prompt_applied": False,
                     "size_requested": [req.width, req.height]},
         )
+
+    def chat_stream(self, messages: list[dict]) -> Generator[str, None, None]:
+        """Llama a Cloudflare llama-3.1-8b-instruct con streaming SSE.
+
+        Hace yield de cada fragmento de texto según llega.
+        Lanza EngineError si las credenciales fallan o la respuesta es inválida.
+        """
+        ok, detail = self.is_available()
+        if not ok:
+            raise EngineError(detail)
+        url = f"{API_BASE}/accounts/{self._account}/ai/run/{LLM_MODEL_ID}"
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+        }
+        payload = {"messages": messages, "stream": True, "max_tokens": 512}
+        try:
+            import httpx
+            with httpx.stream("POST", url, headers=headers, json=payload,
+                              timeout=self._timeout) as res:
+                if res.status_code == 401 or res.status_code == 403:
+                    raise EngineError("El proveedor de chat rechazó las credenciales.")
+                if res.status_code == 429:
+                    raise EngineError("Límite de uso del proveedor de chat alcanzado.")
+                if res.status_code >= 400:
+                    raise EngineError(f"El proveedor de chat respondió con error (HTTP {res.status_code}).")
+                for line in res.iter_lines():
+                    line = line.strip()
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        import json
+                        chunk = json.loads(data)
+                        token = chunk.get("response", "")
+                        if token:
+                            yield token
+                    except Exception:
+                        continue
+        except EngineError:
+            raise
+        except Exception as exc:
+            raise EngineTransientError("No se pudo conectar con el proveedor de chat.") from exc
+

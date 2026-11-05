@@ -14,6 +14,8 @@ import { routeSummary } from '../features/image-studio/routeSummary';
 import { CloudConfirmDialog } from '../components/ConfirmDialog';
 import { JobCard } from '../features/image-studio/JobCard';
 import { SIZE_OPTIONS } from '../features/image-studio/generationForm';
+import { ChatPanel } from '../components/ChatPanel';
+
 
 const DEFAULT_FORM: GenerationFormValues = {
   characterId: '',
@@ -37,6 +39,8 @@ export function StudioPage() {
   const [apiError, setApiError] = useState<unknown>(null);
   const [confirmCloud, setConfirmCloud] = useState(false);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
+  const [activeTab, setActiveTab] = useState<'imagen' | 'chat'>('imagen');
+
 
   useEffect(() => {
     const pid = searchParams.get('personaje');
@@ -75,19 +79,39 @@ export function StudioPage() {
     submit(false).catch(() => {});
   }
 
-  const charList = characters.data?.items ?? [];
-  const selectedChar = charList.find((c) => c.id === form.characterId);
 
   return (
     <>
       <div className="page-head">
-        <h1>Estudio de imágenes</h1>
+        <h1>Estudio</h1>
+      </div>
+
+      {/* Pestañas */}
+      <div className="studio-tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'imagen'}
+          className={`studio-tab${activeTab === 'imagen' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('imagen')}
+        >
+          🖼 Imagen
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'chat'}
+          className={`studio-tab${activeTab === 'chat' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+          disabled={!form.characterId}
+          title={!form.characterId ? 'Selecciona primero un personaje' : ''}
+        >
+          💬 Chat
+        </button>
       </div>
 
       <div className="studio-layout">
-        <form className="card stack" onSubmit={handleSubmit} noValidate aria-label="Nueva generación">
-          <h2>Nueva generación</h2>
-
+        {/* Panel izquierdo — selector de personaje siempre visible */}
+        <div className="card stack" aria-label="Personaje">
+          <h2>Personaje</h2>
           <div className="field">
             <label htmlFor="char-select">Personaje</label>
             {characters.loading ? (
@@ -100,7 +124,7 @@ export function StudioPage() {
                 onChange={(e) => setForm((f) => ({ ...f, characterId: e.target.value }))}
               >
                 <option value="">Elige un personaje…</option>
-                {charList.map((c: Character) => (
+                {(characters.data?.items ?? []).map((c: Character) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -109,6 +133,23 @@ export function StudioPage() {
             )}
             {errors.characterId ? <p className="error-text">{errors.characterId}</p> : null}
           </div>
+        </div>
+
+        {/* Panel de chat */}
+        {activeTab === 'chat' && form.characterId ? (
+          <ChatPanel
+            characterId={form.characterId}
+            characterName={
+              (characters.data?.items ?? []).find((c: Character) => c.id === form.characterId)?.name ?? 'Personaje'
+            }
+          />
+        ) : null}
+
+        {/* Panel de generación de imágenes */}
+        {activeTab === 'imagen' ? (
+        <form className="card stack" onSubmit={handleSubmit} noValidate aria-label="Nueva generación">
+          <h2>Nueva generación</h2>
+
 
           <TextField
             label="Prompt"
@@ -215,7 +256,9 @@ export function StudioPage() {
             </button>
           </div>
         </form>
+        ) : null}
 
+        {activeTab === 'imagen' ? (
         <div className="jobs-column">
           <h2>Tareas recientes</h2>
           {jobs.length === 0 ? (
@@ -224,12 +267,17 @@ export function StudioPage() {
             <ul className="job-list">
               {jobs.map((j) => (
                 <li key={j.id}>
-                  <JobCard initial={j} characterName={selectedChar?.name} onNewJob={(nj: GenerationJob) => setJobs((prev) => [nj, ...prev])} />
+                  <JobCard
+                    initial={j}
+                    characterName={(characters.data?.items ?? []).find((c: Character) => c.id === form.characterId)?.name}
+                    onNewJob={(nj: GenerationJob) => setJobs((prev) => [nj, ...prev])}
+                  />
                 </li>
               ))}
             </ul>
           )}
         </div>
+        ) : null}
       </div>
 
       {confirmCloud ? (
