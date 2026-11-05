@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { pickVoiceForGender } from '../lib/voiceGender';
+import type { CharacterGender } from '../types';
 
 interface SpeechRecognitionResultLike {
   readonly transcript: string;
@@ -36,7 +38,7 @@ function getRecognitionCtor(): RecognitionCtor | null {
  * Voz del personaje (TTS) y dictado por micrófono (STT) usando las APIs nativas
  * del navegador. Sin backend ni costo. TTS: Chrome/Edge/Safari. STT: Chrome/Edge.
  */
-export function useSpeech(initialEnabled = false) {
+export function useSpeech(initialEnabled = false, voiceGender: CharacterGender = 'unspecified') {
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
   const RecCtor = getRecognitionCtor();
   const sttSupported = RecCtor !== null;
@@ -46,21 +48,15 @@ export function useSpeech(initialEnabled = false) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
+  // Precarga las voces del navegador (se cargan de forma asíncrona).
   useEffect(() => {
     if (!ttsSupported) return;
-    const load = () => {
-      const voices = window.speechSynthesis.getVoices();
-      voiceRef.current =
-        voices.find((v) => v.lang.toLowerCase().startsWith('es')) ??
-        voices.find((v) => v.default) ??
-        null;
-    };
-    load();
-    window.speechSynthesis.addEventListener('voiceschanged', load);
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
+    const warm = () => window.speechSynthesis.getVoices();
+    warm();
+    window.speechSynthesis.addEventListener('voiceschanged', warm);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', warm);
   }, [ttsSupported]);
 
   const stopSpeaking = useCallback(() => {
@@ -79,16 +75,18 @@ export function useSpeech(initialEnabled = false) {
       if (!clean) return;
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(clean);
-      utter.lang = 'es-ES';
-      if (voiceRef.current) utter.voice = voiceRef.current;
+      // Resolver la voz en cada reproducción: la lista carga de forma asíncrona.
+      const voice = pickVoiceForGender(window.speechSynthesis.getVoices(), voiceGender);
+      utter.lang = voice?.lang ?? 'es-ES';
+      if (voice) utter.voice = voice;
       utter.rate = 1;
-      utter.pitch = 1;
+      utter.pitch = voiceGender === 'male' ? 0.9 : voiceGender === 'female' ? 1.08 : 1;
       utter.onstart = () => setSpeaking(true);
       utter.onend = () => setSpeaking(false);
       utter.onerror = () => setSpeaking(false);
       window.speechSynthesis.speak(utter);
     },
-    [ttsSupported, enabled],
+    [ttsSupported, enabled, voiceGender],
   );
 
   const stopListening = useCallback(() => {

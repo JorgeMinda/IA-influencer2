@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Dialog } from '../components/Dialog';
-import { TextField } from '../components/Fields';
+import { SelectField, TextField } from '../components/Fields';
 import { EmptyState, ErrorNotice, Skeleton } from '../components/Feedback';
 import { Monogram } from '../components/ImageFrame';
 import { useToast } from '../components/Toast';
@@ -11,12 +11,13 @@ import { useDebounced } from '../hooks/useAsync';
 import { usePagedList } from '../hooks/usePagedList';
 import { errorMessage } from '../lib/format';
 import { createCharacter, deleteCharacter, duplicateCharacter, listCharacters, updateCharacter } from '../services/endpoints';
-import type { Character } from '../types';
+import type { Character, CharacterGender } from '../types';
 
 function NewCharacterDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [gender, setGender] = useState<CharacterGender>('unspecified');
   const [errors, setErrors] = useState<{ name?: string; visualDescription?: string }>({});
   const [apiError, setApiError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ function NewCharacterDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setApiError(null);
     try {
-      const c = await createCharacter({ name: name.trim(), visual_description: description });
+      const c = await createCharacter({ name: name.trim(), visual_description: description, gender });
       navigate(`/personajes/${c.id}`);
     } catch (err) {
       setApiError(err);
@@ -41,6 +42,18 @@ function NewCharacterDialog({ onClose }: { onClose: () => void }) {
       <form className="stack" onSubmit={submit} noValidate>
         <TextField label="Nombre" value={name} onChange={setName} error={errors.name} max={LIMITS.name} required autoComplete="off" />
         <TextField label="Descripción visual (opcional)" multiline rows={3} value={description} onChange={setDescription} error={errors.visualDescription} max={LIMITS.description} hint="Podrás completar la ficha después." />
+        <SelectField
+          label="Voz / género"
+          value={gender}
+          onChange={(v) => setGender(v as CharacterGender)}
+          options={[
+            { value: 'unspecified', label: 'Sin especificar (detectar de la descripción)' },
+            { value: 'female', label: 'Femenina' },
+            { value: 'male', label: 'Masculina' },
+            { value: 'neutral', label: 'Neutra' },
+          ]}
+          hint="Se usa para elegir la voz del personaje."
+        />
         {apiError ? <ErrorNotice error={apiError} title="No se pudo crear el personaje." /> : null}
         <div className="actions">
           <button type="button" className="btn" onClick={onClose} disabled={busy}>

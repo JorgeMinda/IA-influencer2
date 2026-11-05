@@ -47,12 +47,14 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
   "visual_description": "Cabello rizado castaño, ojos verdes, pecas, piel morena clara",
   "invariant_traits": ["cabello rizado castaño", "ojos verdes", "pecas"],
   "notes": "",
+  "gender": "female",
   "archived": false,
   "reference_count": 3,
   "created_at": "…", "updated_at": "…"
 }
 ```
 Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_traits` hasta 20 ítems de 1–120, `notes` 0–4000.
+`gender` es opcional en la entrada (`female | male | neutral | unspecified`, por defecto `unspecified`) y determina la voz del personaje (chat y modo llamada). Si falta o es `unspecified`, el cliente lo infiere de `visual_description`, `name`, rasgos y notas.
 
 ### ReferenceImage
 ```json
@@ -123,7 +125,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 | Ruta | Descripción |
 |---|---|
 | `GET /api/characters?include_archived=false&q=&limit=&offset=` | Lista `{items: Character[], total}` |
-| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`. → `201 Character` |
+| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`, `gender?` (`female`\|`male`\|`neutral`\|`unspecified`). → `201 Character` |
 | `GET /api/characters/{id}` | Ficha |
 | `PATCH /api/characters/{id}` | Actualización parcial (incluye `archived`) |
 | `POST /api/characters/{id}/duplicate` | Copia la ficha (sin referencias ni resultados), nombre `"<name> (copia)"`. → `201` |

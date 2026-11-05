@@ -18,6 +18,18 @@ def _check(res: Any, what: str) -> None:
         raise StoreError(f"Supabase respondió HTTP {res.status_code} en {what}")
 
 
+def _missing_column(res: Any, column: str) -> bool:
+    """Detecta el error de PostgREST cuando la columna no existe todavía en el esquema."""
+    if res.status_code not in (400, 404):
+        return False
+    try:
+        body = res.json()
+    except Exception:
+        return False
+    text = str(body).lower()
+    return column.lower() in text and ("column" in text or "schema cache" in text or "pgrst204" in text)
+
+
 class SupabaseStore:
     def __init__(self, url: str, service_key: str, http: Any) -> None:
         self._rest = f"{url}/rest/v1"
@@ -45,6 +57,10 @@ class SupabaseStore:
 
     def insert(self, table: str, row: dict) -> dict:
         res = self._req("POST", f"/{table}", json=row, prefer="return=representation")
+        # Despliegue sin la migración de `gender`: reintenta sin esa columna.
+        if "gender" in row and _missing_column(res, "gender"):
+            row = {k: v for k, v in row.items() if k != "gender"}
+            res = self._req("POST", f"/{table}", json=row, prefer="return=representation")
         _check(res, f"insert {table}")
         return res.json()[0]
 
@@ -71,6 +87,10 @@ class SupabaseStore:
     def update(self, table: str, id: str, user_id: str, patch: dict, expect: dict | None = None) -> dict | None:
         params = [("id", f"eq.{id}"), ("user_id", f"eq.{user_id}")] + [(k, f"eq.{v}") for k, v in (expect or {}).items()]
         res = self._req("PATCH", f"/{table}", params=params, json=patch, prefer="return=representation")
+        # Despliegue sin la migración de `gender`: reintenta sin esa columna.
+        if "gender" in patch and _missing_column(res, "gender"):
+            patch = {k: v for k, v in patch.items() if k != "gender"}
+            res = self._req("PATCH", f"/{table}", params=params, json=patch, prefer="return=representation")
         _check(res, f"update {table}")
         rows = res.json()
         return rows[0] if rows else None

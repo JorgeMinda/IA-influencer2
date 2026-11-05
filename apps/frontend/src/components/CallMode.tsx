@@ -4,10 +4,12 @@ import { fileUrl } from '../services/api';
 import { listReferences } from '../services/endpoints';
 import { streamCharacterChat } from '../services/characterChat';
 import { Monogram } from './ImageFrame';
+import type { CharacterGender } from '../types';
 
 interface CallModeProps {
   characterId: string;
   characterName: string;
+  voiceGender?: CharacterGender;
   onClose: () => void;
 }
 
@@ -17,8 +19,8 @@ type CallStatus = 'idle' | 'listening' | 'thinking' | 'speaking';
  * Videollamada simulada: avatar del personaje + voz (TTS) + micrófono (STT).
  * No usa WebRTC ni lipsync (eso requiere GPU). Funciona con las APIs del navegador.
  */
-export function CallMode({ characterId, characterName, onClose }: CallModeProps) {
-  const speech = useSpeech(true);
+export function CallMode({ characterId, characterName, voiceGender, onClose }: CallModeProps) {
+  const speech = useSpeech(true, voiceGender ?? 'unspecified');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 
 import { getAccessToken } from '../services/auth';
 import { useSpeech } from '../hooks/useSpeech';
 import { CallMode } from './CallMode';
+import type { CharacterGender } from '../types';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -12,18 +13,19 @@ interface Message {
 interface ChatPanelProps {
   characterId: string;
   characterName: string;
+  voiceGender?: CharacterGender;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
-export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
+export function ChatPanel({ characterId, characterName, voiceGender }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const speech = useSpeech();
+  const speech = useSpeech(false, voiceGender ?? 'unspecified');
   const [callOpen, setCallOpen] = useState(false);
 
   // Scroll al último mensaje automáticamente
@@ -279,6 +281,7 @@ export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
         <CallMode
           characterId={characterId}
           characterName={characterName}
+          voiceGender={voiceGender}
           onClose={() => setCallOpen(false)}
         />
       ) : null}

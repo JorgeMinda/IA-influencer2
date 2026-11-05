@@ -10,12 +10,16 @@ export interface Paginated<T> {
   total: number;
 }
 
+export type CharacterGender = 'female' | 'male' | 'neutral' | 'unspecified';
+
 export interface Character {
   id: string;
   name: string;
   visual_description: string;
   invariant_traits: string[];
   notes: string;
+  /** Género/voz del personaje. Puede faltar en respuestas antiguas. */
+  gender?: CharacterGender;
   archived: boolean;
   reference_count: number;
   created_at: string;
@@ -27,6 +31,7 @@ export interface CharacterInput {
   visual_description?: string;
   invariant_traits?: string[];
   notes?: string;
+  gender?: CharacterGender;
 }
 
 export type CharacterPatch = Partial<CharacterInput> & { archived?: boolean };

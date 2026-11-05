@@ -77,15 +77,16 @@ Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y m
 |---|---|---|
 | Contrato de la API v1.1 | ✅ | `docs/api-contracts.md` leído y aplicado: Bearer JWT de Supabase, URLs firmadas directas/data URIs, 401/403/422/503. |
 | Arquitectura | ✅ escrito | `docs/architecture.md` actualizado con Supabase (Auth, Postgres, Storage). |
-| Backend (lógica y endpoints) | ✅ probado | `python -m pytest backend/tests` → **39 passed** (2026-11-03). Cubre `test_infra.py` (9/9), `test_service.py` (14/14) y `test_api.py` (16/16). |
+| Backend (lógica y endpoints) | ✅ probado | `python -m pytest backend/tests` → **41 passed** (2026-11-05). Cubre `test_infra.py` (9/9), `test_service.py` (15/15) y `test_api.py` (17/17). |
 | Backend (capa FastAPI `app/main.py`) | ✅ probado | Ejecutado en Windows con Python 3.14.5 y `TestClient` de FastAPI/Starlette. |
 | Supabase (`supabase/schema.sql`, adaptadores) | 🟡 | `schema.sql` listo en disco. Credenciales reales en `.env`. Adaptadores de PostgREST y Storage probados con mocks en suite de tests; pendiente verificar tablas y buckets en consola web. |
 | Cloudflare / ComfyUI | 🟡 | Adaptadores probados con respuestas simuladas; sin validar contra los servicios reales. |
 | Frontend: código y compilación | ✅ probado | `npm run typecheck` → 0 errores de tipos. `npm run build` → compila limpio en `apps/frontend/dist/`. |
 | Frontend: páginas y Auth | ✅ probado | `LoginPage`, `RequireAuth`, `CharactersPage`, `CharacterDetailPage`, `StudioPage`, `GalleryPage`, `SettingsPage`, `NotFoundPage`. |
 | Frontend: estilos | ✅ verificado | `src/styles.css` presente y enlazado. |
-| Frontend: pruebas | ✅ probado | `npx vitest run` → **17 passed** / 17 casos en 3 archivos (`characterForm`, `referenceValidation`, `destinationRules`). |
-| Frontend: chat con personaje, voz (TTS/STT) y modo llamada | ✅ compilado · 🟡 navegador | `useSpeech.ts`, `CallMode.tsx`, `characterChat.ts`; `npm run typecheck` 0 errores, `npm test` 17/17, `npm run build` OK. Falta probar micrófono/TTS en navegador real. |
+| Frontend: pruebas | ✅ probado | `npx vitest run` → **23 passed** / 23 casos en 4 archivos (`characterForm`, `referenceValidation`, `destinationRules`, `voiceGender`). |
+| Frontend: chat con personaje, voz (TTS/STT) y modo llamada | ✅ compilado · 🟡 navegador | `useSpeech.ts`, `CallMode.tsx`, `characterChat.ts`; `npm run typecheck` 0 errores, `npm test` 23/23, `npm run build` OK. Falta probar micrófono/TTS en navegador real. |
+| Voz por género (personaje → voz) | ✅ probado (código) · 🟡 navegador | Campo `gender` en contrato, backend, SQL y editor; `lib/voiceGender.ts` infiere y elige voz femenina/masculina; prueba de API y unidad 6/6. Falta comprobar en Chrome/Edge con voces del sistema. |
 | Backend: chat `POST /api/chat/{id}` (SSE) | ✅ probado | Corregidos `ChatBody` (definido a nivel de módulo) y `svc.get_character`; humo con `TestClient` → 200 y tokens en streaming (2026-11-05). |
 | Dependencias del frontend | ✅ verificado | `node_modules` completo con React 18, Vite 6, Vitest 3, TypeScript 5.6. |
 | Respaldo y Git | ✅ vinculado | Rama `master`, remoto configurado hacia `https://github.com/JorgeMinda/IA-influencer2.git`. |
@@ -216,6 +217,23 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - Lipsync / video / baile / faceswap: requieren ComfyUI + GPU; no implementados aún.
 - **Decisiones o cambios al contrato:** Ninguno. El audio y la llamada son solo frontend (APIs del navegador); `/api/chat/{id}` ya existía.
 
+### 2026-11-05 (2) — Voz según el género del personaje
+- **Qué cambió:**
+  - Contrato/backend: nuevo campo `gender` (`female | male | neutral | unspecified`) en `CharacterCreate`/`CharacterPatch`/`Character`; se guarda en `characters`, se devuelve en las fichas y se copia al duplicar. El prompt del chat adapta el rol («una influencer (mujer)» / «un influencer (hombre)») y añade una instrucción explícita de género.
+  - SQL: columna `gender` en `supabase/schema.sql` (instalaciones nuevas) y migración `supabase/migrations/2026-11-05_add_character_gender.sql` (proyectos existentes). `SupabaseStore` reintenta sin `gender` si la columna aún no existe, para no romper la app.
+  - Frontend: `lib/voiceGender.ts` (inferencia por descripción/nombre y selección de voz por género con heurística de nombres de voces del sistema); `useSpeech` resuelve la voz en cada reproducción y ajusta el tono; selector **Voz / género** en el editor y en el alta de personaje; `StudioPage` pasa el género efectivo al chat y al modo llamada.
+  - Corrige el caso reportado: «Jade» (descripción «una supermodelo influencer adulta») ya no usa voz masculina; con `unspecified` se infiere femenino.
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests`: **41 passed** (nuevos `test_character_gender` y `test_character_gender_roundtrip`).
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **23 passed** (nuevo `voiceGender.test.ts`, 6 casos).
+  - `npm run build`: OK.
+- **Estado:** ✅ Verificado por pruebas automatizadas · 🟡 falta escuchar la voz en el navegador (depende de las voces instaladas en el sistema).
+- **Pendiente o siguiente paso:**
+  - Ejecutar la migración de `gender` en Supabase (instrucciones en el README) y probar en Chrome/Edge: Jade debe sonar femenina; al cambiar a Masculina debe cambiar la voz.
+  - Si se quiere una voz más realista que la del navegador: evaluar ElevenLabs (requiere clave y tiene límite gratuito) o TTS de Cloudflare; no implementado aún.
+- **Decisiones o cambios al contrato:** Añadido `gender` (opcional; por defecto `unspecified`). Compatible hacia atrás.
+
 ---
 
 ## 7. Cómo se actualiza este documento
@@ -246,6 +264,7 @@ Se añade una entrada al cerrar cada tarea y cuando cambie una decisión. Las en
 | `1514868` | 2026-11-03 | **Frontend completo + Backend fixes**: auth Supabase (Bearer token), `RequireAuth`, `LoginPage`, `SettingsPage` actualizada, corrección `fileUrl` para `data:` URIs, bug `@property` en `Settings`, cargador automático `.env`. 39 tests backend + 17 tests frontend en verde. Prueba e2e exitosa en navegador (personaje "Jade", 4 imágenes simuladas). |
 | `(pendiente)` | 2026-11-04 | **Cloudflare FLUX.1 schnell validado**: token de API configurado con permiso Workers AI. Primera imagen real generada (526 KB, ~8s). Motor confirmado `is_available()=True`. `.env.example` actualizado con comentarios. |
 | `21edc55` | 2026-11-05 | **Chat + audio + modo llamada**: fix 422 del chat (`ChatBody` a nivel de módulo, `svc.get_character`); frontend `useSpeech` (TTS/STT), `characterChat`, `CallMode` (videollamada simulada); botones Voz/Micrófono/Llamar en el chat; corrección de tipos en `destinationRules.test.ts`. 39 tests backend + 17 frontend + build OK. |
+| `(este commit)` | 2026-11-05 | **Voz según el género del personaje**: nuevo campo `gender` en contrato, backend, SQL (migración incluida) y editor; `lib/voiceGender.ts` (inferencia + selección de voz); `useSpeech` resuelve la voz en cada reproducción; prompt del chat adapta el rol. 41 tests backend + 23 frontend + build OK. Corrige el caso «Jade» (supermodelo) que usaba voz masculina. |
 
 ### Pendiente tras el último commit
 - Probar en navegador Chrome/Edge: chat, **Voz ON/OFF**, dictado por micrófono y **Llamar** (permiso de micrófono).

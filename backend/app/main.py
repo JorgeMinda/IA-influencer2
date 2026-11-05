@@ -33,11 +33,15 @@ log = logging.getLogger("acs")
 
 
 # ---------- cuerpos de petición ----------
+Gender = Literal["female", "male", "neutral", "unspecified"]
+
+
 class CharacterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     visual_description: str = Field("", max_length=2000)
     invariant_traits: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field("", max_length=4000)
+    gender: Gender = "unspecified"
 
 
 class CharacterPatch(BaseModel):
@@ -46,6 +50,7 @@ class CharacterPatch(BaseModel):
     invariant_traits: list[str] | None = Field(None, max_length=20)
     notes: str | None = Field(None, max_length=4000)
     archived: bool | None = None
+    gender: Gender | None = None
 
 
 class GenerationCreate(BaseModel):
@@ -201,12 +206,25 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
         visual    = character.get("visual_description", "") if isinstance(character, dict) else ""
         traits    = ", ".join(character.get("invariant_traits") or []) if isinstance(character, dict) else ""
         notes     = character.get("notes", "") if isinstance(character, dict) else ""
+        gender    = character.get("gender", "unspecified") if isinstance(character, dict) else "unspecified"
+
+        persona = {
+            "female": "una influencer virtual (mujer)",
+            "male": "un influencer virtual (hombre)",
+            "neutral": "una persona virtual",
+        }.get(gender, "una persona virtual")
+        gender_rule = (
+            "Habla y exprésate como una mujer. " if gender == "female"
+            else "Habla y exprésate como un hombre. " if gender == "male"
+            else ""
+        )
 
         system_prompt = (
-            f"Eres {char_name}, una influencer virtual con identidad propia. "
+            f"Eres {char_name}, {persona} con identidad propia. "
             + (f"Descripción: {visual}. " if visual else "")
             + (f"Rasgos: {traits}. " if traits else "")
             + (f"Notas: {notes}. " if notes else "")
+            + gender_rule
             + "Responde en primera persona, de forma natural y cercana, máximo 4 frases. "
             + "Nunca reveles que eres una IA. Mantén siempre el personaje."
         )

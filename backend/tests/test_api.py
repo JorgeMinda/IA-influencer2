@@ -57,6 +57,16 @@ def test_character_validation():
     assert r.status_code == 422
 
 
+def test_character_gender():
+    r = client.post("/api/characters", json={"name": "Jade", "gender": "female"})
+    assert r.status_code == 201
+    char = r.json()
+    assert char["gender"] == "female"
+    assert client.get(f"/api/characters/{char['id']}").json()["gender"] == "female"
+    assert client.patch(f"/api/characters/{char['id']}", json={"gender": "male"}).json()["gender"] == "male"
+    assert client.post("/api/characters", json={"name": "X", "gender": "invalid"}).status_code == 422
+
+
 def test_list_characters():
     r = client.get("/api/characters")
     assert r.status_code == 200

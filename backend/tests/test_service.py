@@ -39,6 +39,16 @@ def test_character_crud_and_isolation(svc):
     assert err(svc.get_character, U1, c["id"]).status == 404
 
 
+def test_character_gender_roundtrip(svc):
+    c = svc.create_character(U1, {"name": "Jade", "visual_description": "una supermodelo adulta", "gender": "female"})
+    assert c["gender"] == "female"
+    assert svc.get_character(U1, c["id"])["gender"] == "female"
+    assert svc.update_character(U1, c["id"], {"gender": "male"})["gender"] == "male"
+    assert svc.duplicate_character(U1, c["id"])["gender"] == "male"
+    c2 = svc.create_character(U1, {"name": "Neutral"})
+    assert c2["gender"] == "unspecified"
+
+
 # ---- referencias ----
 def test_reference_upload_rules(svc):
     c = mk(svc)

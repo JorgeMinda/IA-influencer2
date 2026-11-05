@@ -15,6 +15,7 @@ import { CloudConfirmDialog } from '../components/ConfirmDialog';
 import { JobCard } from '../features/image-studio/JobCard';
 import { SIZE_OPTIONS } from '../features/image-studio/generationForm';
 import { ChatPanel } from '../components/ChatPanel';
+import { characterVoiceGender } from '../lib/voiceGender';
 
 
 const DEFAULT_FORM: GenerationFormValues = {
@@ -49,6 +50,7 @@ export function StudioPage() {
 
   const options = getDestinationOptions(providerStatus);
   const effectiveDestination = resolveDestination(form.destination, options);
+  const selectedCharacter = (characters.data?.items ?? []).find((c: Character) => c.id === form.characterId);
 
   async function submit(cloudConfirmed: boolean) {
     const errs = validateGenerationForm({ ...form, destination: effectiveDestination });
@@ -139,9 +141,8 @@ export function StudioPage() {
         {activeTab === 'chat' && form.characterId ? (
           <ChatPanel
             characterId={form.characterId}
-            characterName={
-              (characters.data?.items ?? []).find((c: Character) => c.id === form.characterId)?.name ?? 'Personaje'
-            }
+            characterName={selectedCharacter?.name ?? 'Personaje'}
+            voiceGender={characterVoiceGender(selectedCharacter)}
           />
         ) : null}
 

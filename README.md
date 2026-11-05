@@ -40,6 +40,7 @@ ai-creator-studio/
 ### 1. Supabase (supabase.com)
 1. Crea un proyecto en [supabase.com](https://supabase.com).
 2. Abre el **SQL Editor** en tu panel de Supabase y ejecuta el script [`supabase/schema.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/schema.sql).
+   - Si tu proyecto **ya existía** antes del 2026-11-05, ejecuta también [`supabase/migrations/2026-11-05_add_character_gender.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/migrations/2026-11-05_add_character_gender.sql) para añadir el campo de voz/género.
 3. Asegúrate de tener creados los 3 buckets privados en **Storage**: `references`, `outputs` y `thumbnails`.
 4. Copia tu URL de proyecto (`SUPABASE_URL`), la `anon key` y la `service_role key`.
 
@@ -61,7 +62,7 @@ ai-creator-studio/
    SUPABASE_ANON_KEY=<tu-anon-key>
    SUPABASE_SERVICE_ROLE_KEY=<tu-service-role-key>
    ```
-3. Ejecutar las pruebas automatizadas (39/39 pruebas):
+3. Ejecutar las pruebas automatizadas (41/41 pruebas):
    ```powershell
    python -m pytest tests
    ```
@@ -94,7 +95,7 @@ ai-creator-studio/
    ```powershell
    npm install
    ```
-4. Verificar tipos y pruebas unitarias (17/17 casos):
+4. Verificar tipos y pruebas unitarias (23/23 casos):
    ```powershell
    npm run typecheck
    npm test
@@ -110,7 +111,7 @@ ai-creator-studio/
 ## Flujo de uso
 
 1. **Acceso:** Entra en `http://localhost:5173/login`. Puedes registrar un usuario o iniciar sesión con tus credenciales de Supabase.
-2. **Personajes:** Crea tu personaje virtual en la pestaña **Personajes** indicando nombre, descripción visual y rasgos invariantes.
+2. **Personajes:** Crea tu personaje virtual en la pestaña **Personajes** indicando nombre, descripción visual, rasgos invariantes y **Voz / género** (femenina, masculina, neutra o detectar de la descripción).
 3. **Referencias:** Sube imágenes de referencia representativas confirmando derechos y notas de procedencia.
 4. **Estudio (imagen):** En la pestaña **Estudio**, redacta el prompt y selecciona el motor de generación (`Simulado`, `PC local` o `Nube`).
 5. **Chat y voz:** En **Estudio → Chat**, elige un personaje y conversa (respuestas en streaming). Activa **Voz: ON** para escuchar sus respuestas y usa **Micrófono** para dictar tu mensaje en español.
@@ -124,9 +125,9 @@ ai-creator-studio/
 **Requisitos:** Chrome o Edge (el dictado por voz no está disponible en Firefox), permiso de micrófono y acceso por `http://localhost` o `http://127.0.0.1` (no por IP de red).
 
 1. Arranca backend y frontend (pasos 2 y 3). Verifica que `http://127.0.0.1:8000/api/health` responde `{"status":"ok"}`.
-2. Inicia sesión y crea un personaje (o usa uno existente) con al menos una imagen de referencia (se usará como avatar en la llamada).
+2. Inicia sesión y crea un personaje (o usa uno existente) con al menos una imagen de referencia (se usará como avatar en la llamada). En su ficha, ajusta **Voz / género**; si lo dejas en «Sin especificar», se detecta de la descripción (p. ej. «una supermodelo adulta» → femenina).
 3. Ve a **Estudio → Chat** y envía un mensaje. Debe aparecer la respuesta del personaje en streaming.
-4. Pulsa **Voz: ON** y envía otro mensaje: al terminar, el navegador debe leer la respuesta en voz alta. Vuelve a pulsar para silenciar.
+4. Pulsa **Voz: ON** y envía otro mensaje: al terminar, el navegador debe leer la respuesta en voz alta. Comprueba que la voz **coincide con el género** (un personaje femenino no debe sonar con voz masculina). Cambia el género en la ficha y repite: la voz debe cambiar. Vuelve a pulsar para silenciar.
 5. Pulsa **Micrófono**, acepta el permiso y habla: tu frase debe transcribirse al cuadro de texto. Envía y comprueba la respuesta.
 6. Pulsa **Llamar**: se abre el modo llamada con el avatar. Repite los pasos 4 y 5 dentro de la llamada. Usa **Colgar** para salir.
 7. Comprobaciones de error: sin permiso de micrófono debe mostrarse un aviso claro; en un navegador sin soporte, los botones de voz/micrófono no aparecen y se indica el requisito.

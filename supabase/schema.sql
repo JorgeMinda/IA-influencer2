@@ -12,6 +12,7 @@ create table if not exists public.characters (
   visual_description text not null default '' check (char_length(visual_description) <= 2000),
   invariant_traits jsonb not null default '[]'::jsonb,
   notes text not null default '' check (char_length(notes) <= 4000),
+  gender text not null default 'unspecified' check (gender in ('female', 'male', 'neutral', 'unspecified')),
   archived boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
