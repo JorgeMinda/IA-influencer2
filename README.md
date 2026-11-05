@@ -1,6 +1,6 @@
 # AI Creator Studio (Estudio de Creación de IA)
 
-Plataforma para crear personajes virtuales y generar imágenes consistentes. 
+Plataforma para crear personajes virtuales, generar imágenes consistentes y conversar con ellos (texto, voz y videollamada simulada).
 - **Fase actual:** Web / PWA.
 - **Fases futuras:** Escritorio Windows (Tauri) y Móvil Android / iOS (Capacitor).
 - **Stack tecnológico:**
@@ -9,8 +9,9 @@ Plataforma para crear personajes virtuales y generar imágenes consistentes.
   - **Plataforma de datos y nube:** Supabase (PostgreSQL con RLS, Supabase Auth y Supabase Storage)
   - **Motores de generación:**
     - `mock`: Motor simulado en memoria/disco con Pillow para desarrollo y pruebas rápidas sin GPU ni red.
-    - `cloudflare`: Cloudflare Workers AI (FLUX.1 schnell).
+    - `cloudflare`: Cloudflare Workers AI (FLUX.1 schnell para imagen y Llama 3.1 para chat).
     - `comfyui`: Instancia local de ComfyUI.
+  - **Voz y llamada:** Web Speech API del navegador (TTS para la voz del personaje y STT para dictado). Sin backend ni costo. Requiere Chrome o Edge.
 
 ---
 
@@ -111,8 +112,26 @@ ai-creator-studio/
 1. **Acceso:** Entra en `http://localhost:5173/login`. Puedes registrar un usuario o iniciar sesión con tus credenciales de Supabase.
 2. **Personajes:** Crea tu personaje virtual en la pestaña **Personajes** indicando nombre, descripción visual y rasgos invariantes.
 3. **Referencias:** Sube imágenes de referencia representativas confirmando derechos y notas de procedencia.
-4. **Estudio:** En la pestaña **Estudio**, redacta el prompt y selecciona el motor de generación (`Simulado`, `PC local` o `Nube`).
-5. **Galería:** Consulta los resultados generados, márcalos como favoritos o descárgalos.
+4. **Estudio (imagen):** En la pestaña **Estudio**, redacta el prompt y selecciona el motor de generación (`Simulado`, `PC local` o `Nube`).
+5. **Chat y voz:** En **Estudio → Chat**, elige un personaje y conversa (respuestas en streaming). Activa **Voz: ON** para escuchar sus respuestas y usa **Micrófono** para dictar tu mensaje en español.
+6. **Modo llamada:** En el chat, pulsa **Llamar** para abrir la videollamada simulada: avatar del personaje, voz (TTS) y micrófono (STT), con subtítulos y controles de colgar.
+7. **Galería:** Consulta los resultados generados, márcalos como favoritos o descárgalos.
+
+---
+
+## Pruebas manuales: chat, voz y modo llamada
+
+**Requisitos:** Chrome o Edge (el dictado por voz no está disponible en Firefox), permiso de micrófono y acceso por `http://localhost` o `http://127.0.0.1` (no por IP de red).
+
+1. Arranca backend y frontend (pasos 2 y 3). Verifica que `http://127.0.0.1:8000/api/health` responde `{"status":"ok"}`.
+2. Inicia sesión y crea un personaje (o usa uno existente) con al menos una imagen de referencia (se usará como avatar en la llamada).
+3. Ve a **Estudio → Chat** y envía un mensaje. Debe aparecer la respuesta del personaje en streaming.
+4. Pulsa **Voz: ON** y envía otro mensaje: al terminar, el navegador debe leer la respuesta en voz alta. Vuelve a pulsar para silenciar.
+5. Pulsa **Micrófono**, acepta el permiso y habla: tu frase debe transcribirse al cuadro de texto. Envía y comprueba la respuesta.
+6. Pulsa **Llamar**: se abre el modo llamada con el avatar. Repite los pasos 4 y 5 dentro de la llamada. Usa **Colgar** para salir.
+7. Comprobaciones de error: sin permiso de micrófono debe mostrarse un aviso claro; en un navegador sin soporte, los botones de voz/micrófono no aparecen y se indica el requisito.
+
+> **Límite actual:** el avatar es una imagen fija y la voz usa el sintetizador del navegador. El *lipsync* (boca sincronizada) y el video/baile/faceswap necesitan una instancia local de ComfyUI con GPU y quedan como fase siguiente.
 
 ---
 

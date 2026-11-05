@@ -1,6 +1,6 @@
 # Documento vivo — AI Creator Studio
 
-**Última actualización:** 2026-11-04 · **Orquesta:** Antigravity · **Dueño del proyecto:** el usuario
+**Última actualización:** 2026-11-05 · **Orquesta:** Antigravity · **Dueño del proyecto:** el usuario
 **Para qué sirve:** (1) fijar el método con que se construye la app para que nada se dé por hecho sin comprobarlo, y (2) registrar cada avance y cada detalle. Se actualiza al cerrar cada tarea.
 
 ## Leyenda de evidencia
@@ -85,6 +85,8 @@ Lo digo, marco 🟡 y te doy el comando exacto para que lo ejecutes en tu PC y m
 | Frontend: páginas y Auth | ✅ probado | `LoginPage`, `RequireAuth`, `CharactersPage`, `CharacterDetailPage`, `StudioPage`, `GalleryPage`, `SettingsPage`, `NotFoundPage`. |
 | Frontend: estilos | ✅ verificado | `src/styles.css` presente y enlazado. |
 | Frontend: pruebas | ✅ probado | `npx vitest run` → **17 passed** / 17 casos en 3 archivos (`characterForm`, `referenceValidation`, `destinationRules`). |
+| Frontend: chat con personaje, voz (TTS/STT) y modo llamada | ✅ compilado · 🟡 navegador | `useSpeech.ts`, `CallMode.tsx`, `characterChat.ts`; `npm run typecheck` 0 errores, `npm test` 17/17, `npm run build` OK. Falta probar micrófono/TTS en navegador real. |
+| Backend: chat `POST /api/chat/{id}` (SSE) | ✅ probado | Corregidos `ChatBody` (definido a nivel de módulo) y `svc.get_character`; humo con `TestClient` → 200 y tokens en streaming (2026-11-05). |
 | Dependencias del frontend | ✅ verificado | `node_modules` completo con React 18, Vite 6, Vitest 3, TypeScript 5.6. |
 | Respaldo y Git | ✅ vinculado | Rama `master`, remoto configurado hacia `https://github.com/JorgeMinda/IA-influencer2.git`. |
 
@@ -197,6 +199,23 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - Confirmar ejecución de `supabase/schema.sql` en el proyecto Supabase (`xufalwqpnynjxsgpomjx`) y creación de buckets de Storage privados.
   - Arranque concurrente de dev servers y prueba de extremo a extremo en navegador.
 
+### 2026-11-05 — Chat funcional, audio y modo llamada simulado
+- **Qué cambió:**
+  - Backend: corregido el 422 del chat. `ChatBody` estaba definido dentro de `create_app()` y, con `from __future__ import annotations`, FastAPI no resolvía el tipo y lo trataba como query param. Se movió a nivel de módulo. También se corrigió `svc.store.get_character` → `svc.get_character`.
+  - Frontend: `useSpeech.ts` (TTS con `speechSynthesis` y dictado con `SpeechRecognition`/`webkitSpeechRecognition`, en español, sin backend ni costo); botón **Voz ON/OFF** y **Micrófono** en `ChatPanel`; `characterChat.ts` (consumo SSE reutilizable); `CallMode.tsx` (videollamada simulada con avatar, subtítulos y controles); estilos en `styles.css`.
+  - Frontend pruebas: corregidos 2 errores de tipos preexistentes en `destinationRules.test.ts` (`allow_auto` no existe en el contrato).
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests` (backend): **39 passed**.
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **17 passed** en 3 archivos.
+  - `npm run build`: OK (73 módulos transformados, `dist/` generado).
+  - Humo del chat con `TestClient`: `char: 201`, `chat status: 200` y tokens en streaming.
+- **Estado:** ✅ Verificado por compilación y pruebas automatizadas · 🟡 prueba de micrófono/TTS pendiente en navegador real (requiere Chrome/Edge y permiso).
+- **Pendiente o siguiente paso:**
+  - Probar en navegador: chat, **Voz ON/OFF**, dictado y **Llamar** aceptando el permiso de micrófono.
+  - Lipsync / video / baile / faceswap: requieren ComfyUI + GPU; no implementados aún.
+- **Decisiones o cambios al contrato:** Ninguno. El audio y la llamada son solo frontend (APIs del navegador); `/api/chat/{id}` ya existía.
+
 ---
 
 ## 7. Cómo se actualiza este documento
@@ -226,10 +245,12 @@ Se añade una entrada al cerrar cada tarea y cuando cambie una decisión. Las en
 
 | `1514868` | 2026-11-03 | **Frontend completo + Backend fixes**: auth Supabase (Bearer token), `RequireAuth`, `LoginPage`, `SettingsPage` actualizada, corrección `fileUrl` para `data:` URIs, bug `@property` en `Settings`, cargador automático `.env`. 39 tests backend + 17 tests frontend en verde. Prueba e2e exitosa en navegador (personaje "Jade", 4 imágenes simuladas). |
 | `(pendiente)` | 2026-11-04 | **Cloudflare FLUX.1 schnell validado**: token de API configurado con permiso Workers AI. Primera imagen real generada (526 KB, ~8s). Motor confirmado `is_available()=True`. `.env.example` actualizado con comentarios. |
+| `(este commit)` | 2026-11-05 | **Chat + audio + modo llamada**: fix 422 del chat (`ChatBody` a nivel de módulo, `svc.get_character`); frontend `useSpeech` (TTS/STT), `characterChat`, `CallMode` (videollamada simulada); botones Voz/Micrófono/Llamar en el chat; corrección de tipos en `destinationRules.test.ts`. 39 tests backend + 17 frontend + build OK. |
 
 ### Pendiente tras el último commit
+- Probar en navegador Chrome/Edge: chat, **Voz ON/OFF**, dictado por micrófono y **Llamar** (permiso de micrófono).
 - Prueba de generación end-to-end desde el navegador usando destino **"Nube"** con personaje real.
 - Revisar límite diario gratuito real de Cloudflare Workers AI (actualmente se asume 50/día).
 - Revisión independiente de seguridad.
-- ComfyUI: sin validar (requiere instancia local con GPU).
+- ComfyUI: sin validar (requiere instancia local con GPU para video/baile/faceswap y lipsync).
 

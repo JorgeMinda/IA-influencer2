@@ -336,6 +336,36 @@ textarea.input { resize: vertical; min-height: 60px; }
   max-height: 120px;
 }
 
+.chat-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-header__actions .btn.is-active {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.chat-mic {
+  white-space: nowrap;
+  align-self: flex-end;
+  min-height: 44px;
+}
+
+.chat-mic.is-listening {
+  background: var(--error, #ef4444);
+  border-color: var(--error, #ef4444);
+  color: #fff;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
 .btn-sm {
   padding: 4px 10px;
   font-size: 0.8rem;
@@ -349,3 +379,147 @@ textarea.input { resize: vertical; min-height: 60px; }
 .btn-ghost:hover {
   background: var(--surface-hover, #f1f5f9);
 }
+
+/* ---- Modo llamada (videollamada simulada) ---- */
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 16px 20px;
+  background: radial-gradient(circle at 50% 18%, #1e293b 0%, #0f172a 70%);
+  color: #f8fafc;
+  overflow-y: auto;
+}
+
+.call-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2vh;
+  text-align: center;
+  width: 100%;
+  max-width: 520px;
+}
+
+.call-avatar {
+  width: min(46vw, 260px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1e293b;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35), 0 20px 60px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.call-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.call-avatar .frame {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.call-avatar .monogram {
+  font-size: 3rem;
+}
+
+.call-avatar.is-listening {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.75), 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.call-avatar.is-speaking {
+  animation: call-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes call-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35), 0 0 0 0 rgba(99, 102, 241, 0.55); }
+  50% { box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35), 0 0 0 16px rgba(99, 102, 241, 0); }
+}
+
+.call-name {
+  margin: 4px 0 0;
+  font-size: 1.5rem;
+}
+
+.call-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.call-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+.call-dot--listening,
+.call-dot.is-listening { background: #6366f1; animation: blink 1s step-end infinite; }
+.call-dot--thinking { background: #f59e0b; animation: blink 1s step-end infinite; }
+.call-dot--speaking { background: #22c55e; animation: blink 0.6s step-end infinite; }
+
+.call-captions {
+  width: 100%;
+  min-height: 96px;
+  max-height: 34vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.call-caption {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-align: left;
+  max-width: 90%;
+}
+.call-caption--user { align-self: flex-end; background: rgba(99, 102, 241, 0.9); color: #fff; }
+.call-caption--ai { align-self: flex-start; background: rgba(255, 255, 255, 0.1); color: #f8fafc; }
+.call-caption--hint { align-self: center; background: transparent; color: #94a3b8; text-align: center; }
+
+.call-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 0.88rem;
+}
+
+.call-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0 8px;
+}
+
+.call-btn {
+  min-width: 104px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.call-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.call-btn.is-active { background: #6366f1; border-color: #6366f1; }
+.call-btn--danger { background: #dc2626; border-color: #dc2626; }
+.call-btn--danger:hover { background: #b91c1c; }

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import { getToken } from '../services/auth';
+import { getAccessToken } from '../services/auth';
+import { useSpeech } from '../hooks/useSpeech';
+import { CallMode } from './CallMode';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -12,8 +14,7 @@ interface ChatPanelProps {
   characterName: string;
 }
 
-const WS_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000')
-  .replace(/^http/, 'ws');
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -21,120 +22,189 @@ export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const speech = useSpeech();
+  const [callOpen, setCallOpen] = useState(false);
 
   // Scroll al último mensaje automáticamente
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Limpiar WebSocket al desmontar
+  // Cancelar fetch al desmontar
   useEffect(() => {
-    return () => { wsRef.current?.close(); };
+    return () => { abortRef.current?.abort(); };
   }, []);
 
-  function sendMessage() {
+  async function sendMessage() {
     const text = input.trim();
     if (!text || busy) return;
 
+    speech.stopListening();
     setInput('');
     setError(null);
     setBusy(true);
 
-    // Añadir mensaje del usuario al historial visual
+    // Añadir mensaje del usuario
     setMessages((prev) => [...prev, { role: 'user', text }]);
-
-    // Preparar placeholder de respuesta con streaming
+    // Placeholder de la respuesta
     setMessages((prev) => [...prev, { role: 'assistant', text: '', streaming: true }]);
 
-    const token = getToken();
-    const ws = new WebSocket(`${WS_BASE}/api/chat/${characterId}`);
-    wsRef.current = ws;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ token: token ?? '', message: text }));
-    };
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/${characterId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken() ?? ''}`,
+        },
+        body: JSON.stringify({ message: text }),
+        signal: controller.signal,
+      });
 
-    ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data as string);
-        if (msg.type === 'token') {
-          setMessages((prev) => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last?.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, text: last.text + msg.text };
-            }
-            return copy;
-          });
-        } else if (msg.type === 'done') {
-          setMessages((prev) => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last?.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, streaming: false };
-            }
-            return copy;
-          });
-          setBusy(false);
-          ws.close();
-        } else if (msg.type === 'error') {
-          setError(msg.message ?? 'Error desconocido.');
-          // Quitar placeholder vacío si no llegó nada
-          setMessages((prev) => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last?.role === 'assistant' && !last.text) copy.pop();
-            return copy;
-          });
-          setBusy(false);
-          ws.close();
-        }
-      } catch {
-        // ignorar líneas malformadas
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => 'Error de conexión');
+        throw new Error(`${res.status}: ${errText}`);
       }
-    };
 
-    ws.onerror = () => {
-      setError('Error de conexión con el servidor.');
+      // Leer SSE stream byte a byte
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';   // lo que queda incompleto
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === '[DONE]') {
+            // Finalizar streaming
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === 'assistant') copy[copy.length - 1] = { ...last, streaming: false };
+              return copy;
+            });
+            setBusy(false);
+            speech.speak(fullText);
+            return;
+          }
+          try {
+            const chunk = JSON.parse(payload) as { text?: string; error?: string };
+            if (chunk.error) {
+              setError(chunk.error);
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === 'assistant' && !last.text) copy.pop();
+                return copy;
+              });
+              setBusy(false);
+              return;
+            }
+            if (chunk.text) {
+              fullText += chunk.text;
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === 'assistant') {
+                  copy[copy.length - 1] = { ...last, text: last.text + chunk.text };
+                }
+                return copy;
+              });
+            }
+          } catch {
+            // línea malformada, ignorar
+          }
+        }
+      }
+
+      // El stream terminó sin [DONE]: finalizar y hablar igualmente.
+      setMessages((prev) => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        if (last?.role === 'assistant') copy[copy.length - 1] = { ...last, streaming: false };
+        return copy;
+      });
+      speech.speak(fullText);
+    } catch (err: unknown) {
+      if ((err as Error).name === 'AbortError') return;
+      setError((err as Error).message ?? 'Error de conexión');
       setMessages((prev) => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
         if (last?.role === 'assistant' && !last.text) copy.pop();
         return copy;
       });
+    } finally {
       setBusy(false);
-    };
-
-    ws.onclose = () => {
-      if (busy) setBusy(false);
-    };
+    }
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    sendMessage();
+    sendMessage().catch(() => {});
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      sendMessage().catch(() => {});
     }
   }
 
   function clearChat() {
+    abortRef.current?.abort();
     setMessages([]);
     setError(null);
+    setBusy(false);
   }
 
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <span>💬 Chatea con <strong>{characterName}</strong></span>
-        <button className="btn btn-ghost btn-sm" onClick={clearChat} disabled={busy}>
-          Limpiar
-        </button>
+        <span>�Y'� Chatea con <strong>{characterName}</strong></span>
+        <div className="chat-header__actions">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => {
+              speech.stopSpeaking();
+              speech.stopListening();
+              setCallOpen(true);
+            }}
+            title="Iniciar videollamada simulada con el personaje"
+          >
+            Llamar
+          </button>
+          {speech.ttsSupported ? (
+            <button
+              type="button"
+              className={`btn btn-ghost btn-sm${speech.enabled ? ' is-active' : ''}`}
+              onClick={() => {
+                if (speech.enabled) speech.stopSpeaking();
+                speech.setEnabled(!speech.enabled);
+              }}
+              title={speech.enabled ? 'Silenciar la voz del personaje' : 'Escuchar las respuestas en voz alta'}
+              aria-pressed={speech.enabled}
+            >
+              Voz: {speech.enabled ? 'ON' : 'OFF'}
+            </button>
+          ) : null}
+          <button className="btn btn-ghost btn-sm" onClick={clearChat} disabled={busy}>
+            Limpiar
+          </button>
+        </div>
       </div>
 
       <div className="chat-messages" role="log" aria-live="polite">
@@ -159,10 +229,33 @@ export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
       </div>
 
       {error ? (
-        <p className="chat-error" role="alert">⚠ {error}</p>
+        <p className="chat-error" role="alert">�s� {error}</p>
+      ) : null}
+      {speech.error ? (
+        <p className="chat-error" role="alert">{speech.error}</p>
       ) : null}
 
       <form className="chat-input-row" onSubmit={handleSubmit}>
+        {speech.sttSupported ? (
+          <button
+            type="button"
+            className={`btn btn-ghost chat-mic${speech.listening ? ' is-listening' : ''}`}
+            onClick={() => {
+              if (speech.listening) {
+                speech.stopListening();
+              } else {
+                speech.startListening((transcript) => {
+                  setInput((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript));
+                });
+              }
+            }}
+            disabled={busy}
+            aria-pressed={speech.listening}
+            title={speech.listening ? 'Detener dictado' : 'Dictar por voz'}
+          >
+            {speech.listening ? 'Escuchando…' : 'Micrófono'}
+          </button>
+        ) : null}
         <textarea
           className="input chat-input"
           rows={2}
@@ -181,6 +274,14 @@ export function ChatPanel({ characterId, characterName }: ChatPanelProps) {
           {busy ? '…' : 'Enviar'}
         </button>
       </form>
+
+      {callOpen ? (
+        <CallMode
+          characterId={characterId}
+          characterName={characterName}
+          onClose={() => setCallOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
