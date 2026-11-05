@@ -81,6 +81,10 @@ class ArtifactPatch(BaseModel):
     note: str | None = Field(None, max_length=1000)
 
 
+class ChatBody(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
 # ---------- construcción ----------
 def build(settings: Settings) -> tuple[StudioService, object, RateLimiter]:
     if settings.use_supabase:
@@ -108,8 +112,12 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
     svc, auth, limiter = parts or build(settings)
     app = FastAPI(title="AI Creator Studio API", version=settings.version, docs_url="/api/docs" if settings.is_dev else None,
                   redoc_url=None, openapi_url="/api/openapi.json" if settings.is_dev else None)
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
-                       allow_headers=["Authorization", "Content-Type"], max_age=600)
+    # En desarrollo usamos allow_origins=["*"] porque el CORS middleware de Starlette
+    # bloquea WebSocket upgrades cuando el origen no coincide exactamente.
+    # La seguridad real viene del token Bearer que se valida dentro del handler.
+    _cors_origins = ["*"] if settings.is_dev else list(settings.cors_origins)
+    app.add_middleware(CORSMiddleware, allow_origins=_cors_origins, allow_methods=["*"],
+                       allow_headers=["*"], allow_credentials=False, max_age=600)
     if not settings.use_supabase:
         log.warning("MODO DESARROLLO sin Supabase: usuario fijo, datos en memoria, solo 127.0.0.1.")
 
@@ -172,99 +180,81 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
     def providers(_: str = U):
         return svc.providers_status()
 
-    # ---- chat con personaje (efímero, sin historial) ----
-    @app.websocket("/api/chat/{character_id}")
-    async def chat_ws(character_id: str, websocket):
-        """WebSocket de chat con un personaje. Sesión efímera — sin historial en BD.
+    # ---- chat con personaje (efímero, SSE streaming) ----
+    import json as _json
+    from fastapi.responses import StreamingResponse
 
-        Protocolo:
-          cliente → {"token": "<bearer>", "message": "<texto>"}  (primer mensaje = auth)
-          servidor → {"type": "token", "text": "<fragmento>"}     (streaming)
-          servidor → {"type": "done"}                             (fin de respuesta)
-          servidor → {"type": "error", "message": "<detalle>"}   (fallo)
+    @app.post("/api/chat/{character_id}")
+    async def chat_stream(character_id: str, body: ChatBody, u: str = U):
+        """POST → StreamingResponse SSE. Sesión efímera sin historial en BD.
+
+        Cada fragmento llega como: data: {"text": "..."}\n\n
+        Al terminar:              data: [DONE]\n\n
         """
-        from fastapi import WebSocket as WS
-        from fastapi.websockets import WebSocketDisconnect
-        import json as _json
-
-        await websocket.accept()
+        # Cargar personaje
         try:
-            # 1. Autenticación — esperamos el primer mensaje con el token Bearer
-            raw = await websocket.receive_text()
-            try:
-                first = _json.loads(raw)
-            except Exception:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "Mensaje inicial inválido (se esperaba JSON)."}))
-                await websocket.close()
-                return
+            character = await run_in_threadpool(svc.get_character, u, character_id)
+        except Exception:
+            raise errors.not_found("Personaje no encontrado.")
 
-            bearer = first.get("token", "")
-            try:
-                uid = auth.verify(bearer or None)
-            except Exception:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "Sesión no válida."}))
-                await websocket.close()
-                return
+        char_name = character.get("name", "Personaje") if isinstance(character, dict) else "Personaje"
+        visual    = character.get("visual_description", "") if isinstance(character, dict) else ""
+        traits    = ", ".join(character.get("invariant_traits") or []) if isinstance(character, dict) else ""
+        notes     = character.get("notes", "") if isinstance(character, dict) else ""
 
-            user_message = first.get("message", "").strip()
-            if not user_message:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "El mensaje no puede estar vacío."}))
-                await websocket.close()
-                return
+        system_prompt = (
+            f"Eres {char_name}, una influencer virtual con identidad propia. "
+            + (f"Descripción: {visual}. " if visual else "")
+            + (f"Rasgos: {traits}. " if traits else "")
+            + (f"Notas: {notes}. " if notes else "")
+            + "Responde en primera persona, de forma natural y cercana, máximo 4 frases. "
+            + "Nunca reveles que eres una IA. Mantén siempre el personaje."
+        )
 
-            # 2. Cargar personaje para construir el system prompt
-            try:
-                character = await run_in_threadpool(svc.store.get_character, uid, character_id)
-            except Exception:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "Personaje no encontrado."}))
-                await websocket.close()
-                return
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": body.message},
+        ]
 
-            traits = ", ".join(character.get("invariant_traits") or []) if isinstance(character, dict) else ""
-            char_name = character.get("name", "Personaje") if isinstance(character, dict) else "Personaje"
-            visual = character.get("visual_description", "") if isinstance(character, dict) else ""
-            notes = character.get("notes", "") if isinstance(character, dict) else ""
+        cf_engine = svc.engines.get("cloudflare")
+        if cf_engine is None or not cf_engine.is_available()[0]:
+            raise errors.bad_request("Motor de chat no disponible. Revisa las credenciales de Cloudflare.")
 
-            system_prompt = (
-                f"Eres {char_name}, una influencer virtual con identidad propia. "
-                f"{'Descripción: ' + visual + '. ' if visual else ''}"
-                f"{'Rasgos: ' + traits + '. ' if traits else ''}"
-                f"{'Notas adicionales: ' + notes + '. ' if notes else ''}"
-                "Responde siempre en primera persona, de forma natural y cercana, en máximo 4 frases. "
-                "Nunca reveles que eres una IA. Mantén siempre el personaje."
-            )
+        # chat_stream() es síncrono/bloqueante — lo corremos en un hilo
+        # y hacemos yield de cada token desde un async generator.
+        import asyncio
 
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ]
+        async def _async_generate():
+            loop = asyncio.get_event_loop()
+            q: asyncio.Queue = asyncio.Queue()
+            SENTINEL = object()
 
-            # 3. Streaming desde Cloudflare llama-3.1 — bloqueante, se corre en hilo
-            cf_engine = svc.engines.get("cloudflare")
-            if cf_engine is None or not cf_engine.is_available()[0]:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "Motor de chat no disponible. Revisa las credenciales de Cloudflare."}))
-                await websocket.close()
-                return
+            def _produce():
+                try:
+                    for token in cf_engine.chat_stream(messages):
+                        loop.call_soon_threadsafe(q.put_nowait, token)
+                except Exception as exc:
+                    loop.call_soon_threadsafe(q.put_nowait, {"__error__": str(exc)})
+                finally:
+                    loop.call_soon_threadsafe(q.put_nowait, SENTINEL)
 
-            def _stream_tokens():
-                return list(cf_engine.chat_stream(messages))
+            loop.run_in_executor(None, _produce)
 
-            try:
-                tokens = await run_in_threadpool(_stream_tokens)
-                for tok in tokens:
-                    await websocket.send_text(_json.dumps({"type": "token", "text": tok}))
-                await websocket.send_text(_json.dumps({"type": "done"}))
-            except Exception as exc:
-                await websocket.send_text(_json.dumps({"type": "error", "message": str(exc)}))
+            while True:
+                item = await q.get()
+                if item is SENTINEL:
+                    break
+                if isinstance(item, dict) and "__error__" in item:
+                    yield f"data: {_json.dumps({'error': item['__error__']})}\n\n"
+                    break
+                yield f"data: {_json.dumps({'text': item})}\n\n"
+            yield "data: [DONE]\n\n"
 
-        except WebSocketDisconnect:
-            pass
-        except Exception as exc:
-            log.exception("Error inesperado en chat_ws: %s", exc)
-            try:
-                await websocket.send_text(_json.dumps({"type": "error", "message": "Error interno del servidor."}))
-            except Exception:
-                pass
+        return StreamingResponse(
+            _async_generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
 
     @app.get("/api/characters")
