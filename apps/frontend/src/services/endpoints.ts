@@ -14,6 +14,7 @@ import type {
   Destination,
   ProvidersStatus,
   ReferenceImage,
+  VideoJob,
 } from '../types';
 
 type Sig = { signal?: AbortSignal };
@@ -41,6 +42,33 @@ export function uploadReference(characterId: string, file: File, sourceNote: str
 }
 export const referenceFromArtifact = (characterId: string, artifactId: string, sourceNote: string) =>
   api.post<ReferenceImage>(`/api/characters/${characterId}/references/from-artifact`, { artifact_id: artifactId, source_note: sourceNote.trim() });
+
+export const createVideo = (body: {
+  character_id: string;
+  prompt: string;
+  negative_prompt?: string;
+  duration_seconds?: number;
+  fps?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  destination?: string;
+}) => api.post<VideoJob>('/api/videos', body);
+
+export const createDance = (body: {
+  character_id: string;
+  reference_image_id: string;
+  motion_preset?: string;
+  duration_seconds?: number;
+  seed?: number;
+  destination?: string;
+}) => api.post<VideoJob>('/api/dances', body);
+
+export const createFaceswap = (body: {
+  source_image_id: string;
+  target_image_id: string;
+  destination?: string;
+}) => api.post<VideoJob>('/api/faceswaps', body);
 export const deleteReference = (id: string) => api.del(`/api/references/${id}`, { query: { confirm: true } });
 
 // Generaciones

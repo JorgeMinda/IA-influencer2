@@ -88,6 +88,26 @@ def test_character_voice_profile():
     assert client.post("/api/characters", json={"name": "Bad4", "voice_profile": bad4}).status_code == 422
 
 
+def test_video_scaffolding():
+    # inválido → 422
+    assert client.post("/api/videos", json={}).status_code == 422
+    assert client.post("/api/videos", json={"character_id": "x", "prompt": "", "duration_seconds": 0}).status_code == 422
+    # personaje inexistente en dance → 404
+    r = client.post("/api/dances", json={"character_id": "no-existe", "reference_image_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 404
+    # válido pero sin motor → 503
+    char = client.post("/api/characters", json={"name": "V"}).json()
+    r = client.post("/api/videos", json={"character_id": char["id"], "prompt": "hola"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "provider_unavailable"
+    r = client.post("/api/dances", json={"character_id": char["id"], "reference_image_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 503
+    r = client.post("/api/faceswaps", json={"source_image_id": "00000000-0000-0000-0000-000000000000", "target_image_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 503
+    # listado vacío
+    assert client.get("/api/videos").status_code == 200
+    assert client.get("/api/videos").json()["total"] == 0
+
+
 def test_list_characters():
     r = client.get("/api/characters")
     assert r.status_code == 200

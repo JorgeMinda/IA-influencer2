@@ -180,6 +180,22 @@ Validación de subida: tipo real verificado con Pillow (no solo la extensión), 
 | `PATCH /api/artifacts/{id}` | Cuerpo: `selected?`, `note?` (0–1000) |
 | `DELETE /api/artifacts/{id}?confirm=true` | Borra imagen y miniatura. → `204` |
 
+### Video, baile y faceswap (scaffolding)
+Estos endpoints existen para que el frontend pueda ofrecer las opciones, pero **ningún motor los implementa todavía**: requieren una instancia local de ComfyUI con GPU. Mientras no haya proveedor disponible, responden `503 provider_unavailable`. Los cuerpos se validan con `422` si son inválidos.
+
+| Ruta | Descripción |
+|---|---|
+| `POST /api/videos` | Crea un trabajo de video. Cuerpo: `character_id`, `prompt` (1–2000), `negative_prompt?` (0–1000), `duration_seconds?` (1–10, defecto 3), `fps?` (8–30, defecto 16), `width?`/`height?` (256–1024, múltiplos de 64, defecto 512), `seed?`, `destination?` (solo `local` por ahora), `confirm_cloud?` (bool). → `202 VideoJob` o `503 provider_unavailable`. |
+| `GET /api/videos/{id}` | Estado del trabajo de video. |
+| `GET /api/videos?character_id=&status=&limit=&offset=` | Lista de trabajos de video. |
+| `POST /api/dances` | Crea un video de baile a partir de una imagen de referencia. Cuerpo: `character_id`, `reference_image_id` (uuid), `motion_preset?` (`wave \| nod \| dance \| idle`, defecto `idle`), `duration_seconds?` (1–10, defecto 3), `seed?`, `destination?`. → `202 VideoJob` o `503`. |
+| `POST /api/faceswaps` | Crea un faceswap sobre una imagen. Cuerpo: `source_image_id` (uuid de artefacto o referencia), `target_image_id` (uuid), `destination?`. → `202 FaceswapJob` o `503`. |
+
+`VideoJob` = `{ "id", "user_id", "character_id", "kind": "video"\|"dance", "status", "params", "result_url", "error_code", "error_message", "created_at", "completed_at" }`.
+`FaceswapJob` = `{ "id", "user_id", "kind": "faceswap", "status", "params", "result_url", "error_code", "error_message", "created_at", "completed_at" }`.
+
+Hasta que exista un motor con GPU, todos los `POST` devuelven `503 provider_unavailable` con el mensaje "No hay un motor de video disponible. Se requiere ComfyUI con GPU." El frontend muestra esta opción como "Próximamente".
+
 ### Archivos (Supabase Storage)
 Ya no existe `GET /api/files/...`. Los archivos viven en buckets privados de Supabase: `references`, `outputs`, `thumbnails`, con rutas `<user_id>/<uuid>.<ext>`. El servidor sube los archivos con `service_role` y entrega URLs firmadas de 1 hora. Un usuario solo puede leer los objetos de su carpeta (políticas de Storage). Las subidas se validan igual que en v1.0 (Pillow, reencode, sin EXIF, nombre UUID).
 

@@ -148,6 +148,20 @@ export interface ProvidersStatus {
   limits: { max_upload_mb: number; max_concurrent_jobs: number; rate_limit_per_minute: number };
 }
 
+export interface VideoJob {
+  id: string;
+  user_id: string;
+  character_id?: string;
+  kind: 'video' | 'dance' | 'faceswap';
+  status: string;
+  params?: Record<string, unknown>;
+  result_url?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
   version: string;

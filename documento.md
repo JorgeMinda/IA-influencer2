@@ -271,6 +271,24 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - HTTPS/túnel para acceder desde el teléfono.
 - **Decisiones o cambios al contrato:** Ninguno.
 
+﻿### 2026-11-06 (3) — Scaffolding video / baile / faceswap
+- **Qué cambió:**
+  - Contrato: nueva sección "Video, baile y faceswap (scaffolding)" en `docs/api-contracts.md` (`POST /api/videos`, `/api/dances`, `/api/faceswaps`, `GET /api/videos`, `GET /api/videos/{id}`) con validación 422 y respuesta 503 `provider_unavailable` mientras no haya motor de video.
+  - Backend: modelos `VideoCreate`, `DanceCreate`, `FaceswapCreate` y endpoints en `app/main.py`. Validan entrada; devuelven 503 con mensaje "No hay un motor de video disponible. Se requiere ComfyUI con GPU."
+  - Frontend: nueva página `MediaPage.tsx` (ruta `/media`, nav "Video") con formularios que llaman a los endpoints y muestran el mensaje de no disponible. Tipos `VideoJob` y funciones en `endpoints.ts`.
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests`: **45 passed** (nuevo `test_video_scaffolding`).
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **37 passed**.
+  - `npm run build`: OK.
+- **Estado:** ✅ Verificado por pruebas automatizadas · 🟡 la UI muestra "Próximamente" hasta conectar ComfyUI con GPU.
+- **Pendiente o siguiente paso:**
+  - Conectar ComfyUI local con GPU y workflows de video/baile/faceswap (AnimateDiff/SVD/ReActor).
+  - Implementar el motor de video real y la persistencia de `VideoJob`.
+- **Decisiones o cambios al contrato:** Añadidos endpoints de video/baile/faceswap (scaffolding). Compatible hacia atrás.
+
+---
+
 ---
 
 ---

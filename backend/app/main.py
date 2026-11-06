@@ -85,6 +85,34 @@ class ConfirmBody(BaseModel):
 class BatchBody(BaseModel):
     base_prompt: str | None = Field(None, max_length=2000)
     destination: Literal["auto", "local", "cloud", "mock"] = "auto"
+
+
+class VideoCreate(BaseModel):
+    character_id: str
+    prompt: str = Field(min_length=1, max_length=2000)
+    negative_prompt: str = Field("", max_length=1000)
+    duration_seconds: int = Field(3, ge=1, le=10)
+    fps: int = Field(16, ge=8, le=30)
+    width: int = Field(512, ge=256, le=1024)
+    height: int = Field(512, ge=256, le=1024)
+    seed: int | None = Field(None, ge=0)
+    destination: Literal["local", "auto"] = "local"
+    confirm_cloud: bool = False
+
+
+class DanceCreate(BaseModel):
+    character_id: str
+    reference_image_id: str
+    motion_preset: Literal["wave", "nod", "dance", "idle"] = "idle"
+    duration_seconds: int = Field(3, ge=1, le=10)
+    seed: int | None = Field(None, ge=0)
+    destination: Literal["local", "auto"] = "local"
+
+
+class FaceswapCreate(BaseModel):
+    source_image_id: str
+    target_image_id: str
+    destination: Literal["local", "auto"] = "local"
     priority: Literal["speed", "balanced", "quality"] = "balanced"
     confirm_cloud: bool = False
 
@@ -302,6 +330,42 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+
+    # ---- video / baile / faceswap (scaffolding: sin motor disponible) ----
+    VIDEO_UNAVAILABLE = "No hay un motor de video disponible. Se requiere ComfyUI con GPU."
+
+    def _video_provider_ok() -> bool:
+        # Por ahora ningún motor declara soporte de video.
+        return False
+
+    @app.post("/api/videos", status_code=202)
+    def create_video(body: VideoCreate, u: str = U):
+        if not _video_provider_ok():
+            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+
+    @app.get("/api/videos/{vid}")
+    def get_video(vid: str, u: str = U):
+        raise errors.not_found("Trabajo de video no encontrado.")
+
+    @app.get("/api/videos")
+    def list_videos(character_id: str | None = None, status: str | None = None,
+                    limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), u: str = U):
+        return {"items": [], "total": 0}
+
+    @app.post("/api/dances", status_code=202)
+    def create_dance(body: DanceCreate, u: str = U):
+        # validar que el personaje existe
+        svc.get_character(u, body.character_id)
+        if not _video_provider_ok():
+            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+
+    @app.post("/api/faceswaps", status_code=202)
+    def create_faceswap(body: FaceswapCreate, u: str = U):
+        if not _video_provider_ok():
+            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
 
     @app.get("/api/characters")
     def list_chars(include_archived: bool = False, q: str = "", limit: int = Query(50, ge=1, le=200),

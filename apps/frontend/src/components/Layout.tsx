@@ -11,6 +11,7 @@ const icons: Record<string, string> = {
 const NAV = [
   { to: '/personajes', label: 'Personajes', icon: 'personajes' },
   { to: '/estudio', label: 'Estudio', icon: 'estudio' },
+  { to: '/media', label: 'Video', icon: 'estudio' },
   { to: '/galeria', label: 'Galería', icon: 'galeria' },
   { to: '/ajustes', label: 'Ajustes', icon: 'ajustes' },
 ];

@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { CharactersPage } from './pages/CharactersPage';
 import { CharacterDetailPage } from './pages/CharacterDetailPage';
 import { StudioPage } from './pages/StudioPage';
+import { MediaPage } from './pages/MediaPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -20,6 +21,7 @@ export function AppRoutes() {
           <Route path="personajes" element={<CharactersPage />} />
           <Route path="personajes/:id" element={<CharacterDetailPage />} />
           <Route path="estudio" element={<StudioPage />} />
+          <Route path="media" element={<MediaPage />} />
           <Route path="galeria" element={<GalleryPage />} />
           <Route path="ajustes" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
