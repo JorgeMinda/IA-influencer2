@@ -251,6 +251,28 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - Evaluar TTS más natural (ElevenLabs/Cloudflare) como fase posterior; fuera de alcance en esta tarea.
 - **Decisiones o cambios al contrato:** Añadido `voice_profile` (opcional; por defecto `null`). Compatible hacia atrás.
 
+﻿### 2026-11-06 (2) — Endurecimiento de seguridad
+- **Qué cambió:**
+  - RLS: eliminada la política `own_modify` de `supabase/schema.sql` y nueva migración `supabase/migrations/2026-11-06_drop_own_modify_policy.sql`. Las escrituras solo las hace el backend con `service_role`.
+  - Configuración: `ACS_ENV` por defecto `production` (antes `development`); sin Supabase en producción el backend no arranca. `.env.example` actualizado.
+  - Imágenes: `MAX_DIM` reducido de 8192 a 4096 y tope de 25 megapíxeles (`MAX_MEGAPIXELS`), además del límite de bytes.
+  - Concurrencia: tope de tareas activas por usuario (`max_concurrent_jobs * 4`) en `create_generation`.
+  - Cuota de nube: `release_cloud_quota` en `Store` (memoria + Supabase) y `_fail` la libera al fallar una tarea en la nube.
+  - CSP: meta `Content-Security-Policy` en `apps/frontend/index.html` (script-src 'self', object-src 'none', frame-ancestors 'none', etc.).
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests`: **44 passed**.
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **37 passed**.
+  - `npm run build`: OK.
+- **Estado:** ✅ Verificado por pruebas automatizadas · 🟡 falta validar RLS en un proyecto Supabase real y CSP en navegador.
+- **Pendiente o siguiente paso:**
+  - Rate limiter persistente (hoy en memoria, un solo proceso): requiere tabla + backend; documentado como limitación.
+  - Moderación de contenido más allá de palabras clave; revisar términos de los proveedores.
+  - HTTPS/túnel para acceder desde el teléfono.
+- **Decisiones o cambios al contrato:** Ninguno.
+
+---
+
 ---
 
 ---

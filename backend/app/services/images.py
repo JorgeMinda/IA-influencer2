@@ -9,8 +9,9 @@ from PIL import Image, UnidentifiedImageError
 
 from app.core import errors
 
-MAX_DIM = 8192
-Image.MAX_IMAGE_PIXELS = MAX_DIM * MAX_DIM
+MAX_DIM = 4096
+MAX_MEGAPIXELS = 25
+Image.MAX_IMAGE_PIXELS = MAX_MEGAPIXELS * 1024 * 1024
 ALLOWED = {"PNG", "JPEG", "WEBP"}
 THUMB_MAX = 256
 
@@ -37,6 +38,9 @@ def process_image(data: bytes, max_mb: int) -> ProcessedImage:
     if w > MAX_DIM or h > MAX_DIM or w < 1 or h < 1:
         raise errors.validation(f"Las dimensiones máximas son {MAX_DIM}×{MAX_DIM} px.",
                                 [{"field": "file", "reason": "dimensiones excesivas"}])
+    if w * h > MAX_MEGAPIXELS * 1_000_000:
+        raise errors.validation(f"La imagen supera {MAX_MEGAPIXELS} megapíxeles.",
+                                [{"field": "file", "reason": "demasiados megapíxeles"}])
     try:
         img = Image.open(io.BytesIO(data)); img.load()
     except (OSError, Image.DecompressionBombError):

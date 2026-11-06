@@ -116,6 +116,22 @@ class SupabaseStore:
         _check(res, "rpc increment_cloud_usage")
         return bool(res.json())
 
+    def release_cloud_quota(self, user_id: str) -> None:
+        # Mejor esfuerzo: decrementa la cuota del día si la fila existe.
+        from datetime import datetime, timezone
+        day = datetime.now(timezone.utc).date().isoformat()
+        try:
+            res = self._req("GET", "/usage_daily", params=[("user_id", f"eq.{user_id}"), ("day", f"eq.{day}"), ("limit", "1")])
+            if res.status_code >= 400 or not res.json():
+                return
+            cur = res.json()[0].get("cloud_generations", 0)
+            if cur <= 0:
+                return
+            self._req("PATCH", "/usage_daily", params=[("user_id", f"eq.{user_id}"), ("day", f"eq.{day}")],
+                      json={"cloud_generations": cur - 1})
+        except Exception:
+            pass
+
 
 class SupabaseBlobs:
     def __init__(self, url: str, service_key: str, http: Any) -> None:

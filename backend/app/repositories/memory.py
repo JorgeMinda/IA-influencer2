@@ -87,8 +87,14 @@ class MemoryStore:
             key = (user_id, datetime.now(timezone.utc).date().isoformat())
             if self._usage.get(key, 0) >= limit:
                 return False
-            self._usage[key] = self._usage.get(key, 0) + 1
-            return True
+        self._usage[key] = self._usage.get(key, 0) + 1
+        return True
+
+    def release_cloud_quota(self, user_id: str) -> None:
+        with self._lock:
+            key = (user_id, datetime.now(timezone.utc).date().isoformat())
+            if key in self._usage and self._usage[key] > 0:
+                self._usage[key] -= 1
 
 
 class MemoryBlobs:

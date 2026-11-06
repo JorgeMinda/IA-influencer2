@@ -19,7 +19,7 @@ def _int(v: str | None, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
-    env: str = "development"
+    env: str = "production"
     version: str = "0.2.0"
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     max_upload_mb: int = 8
@@ -100,7 +100,7 @@ def load_settings(environ: dict[str, str] | None = None) -> Settings:
         e = environ
     origins = tuple(o.strip() for o in e.get("ACS_CORS_ORIGINS", "").split(",") if o.strip())
     return Settings(
-        env=e.get("ACS_ENV", "development"),
+        env=e.get("ACS_ENV", "production"),
         cors_origins=origins or Settings.cors_origins,
         max_upload_mb=_int(e.get("ACS_MAX_UPLOAD_MB"), 8),
         max_concurrent_jobs=max(1, _int(e.get("ACS_MAX_CONCURRENT_JOBS"), 2)),

@@ -248,6 +248,13 @@ class StudioService:
         char = self._char(user, d["character_id"])
         if violates_policy(d["prompt"], d.get("negative_prompt") or ""):
             raise errors.content_policy()
+        # Límite de tareas activas por usuario (evita saturar el pool de hilos).
+        active = 0
+        for status in ("pending", "processing"):
+            _, n = self.db.select("generation_jobs", user, [("status", "eq", status)], limit=1)
+            active += n
+        if active >= self.s.max_concurrent_jobs * 4:
+            raise errors.conflict("Ya tienes demasiadas tareas en curso. Espera a que terminen.")
         dest = self._route(d["destination"], bool(d.get("confirm_cloud")))
         seed = d.get("seed")
         seed = secrets.randbelow(2**31) if seed is None else seed
@@ -306,6 +313,12 @@ class StudioService:
 
     # ---------- ejecución ----------
     def _fail(self, user: str, jid: str, code: str, msg: str) -> None:
+        try:
+            j = self.db.get("generation_jobs", jid, user)
+            if j and j.get("destination_used") == "cloud":
+                self.db.release_cloud_quota(user)
+        except Exception:
+            pass
         self.db.update("generation_jobs", jid, user, {"status": "failed", "error_code": code, "error_message": msg,
                                                       "completed_at": _now()})
 

@@ -138,7 +138,8 @@ begin
     execute format('drop policy if exists "own_select" on public.%I', t);
     execute format('drop policy if exists "own_modify" on public.%I', t);
     execute format('create policy "own_select" on public.%I for select to authenticated using (user_id = auth.uid())', t);
-    execute format('create policy "own_modify" on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
+    -- "own_modify" eliminada a propósito: las escrituras solo las hace el backend con service_role,
+    -- que ignora RLS. Así un cliente con anon key no puede insertar/actualizar/borrar directamente.
   end loop;
 end $$;
 
