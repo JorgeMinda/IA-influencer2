@@ -143,6 +143,7 @@ export function StudioPage() {
             characterId={form.characterId}
             characterName={selectedCharacter?.name ?? 'Personaje'}
             voiceGender={characterVoiceGender(selectedCharacter)}
+            voiceProfile={selectedCharacter?.voice_profile ?? null}
           />
         ) : null}
 

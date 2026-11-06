@@ -41,6 +41,7 @@ ai-creator-studio/
 1. Crea un proyecto en [supabase.com](https://supabase.com).
 2. Abre el **SQL Editor** en tu panel de Supabase y ejecuta el script [`supabase/schema.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/schema.sql).
    - Si tu proyecto **ya existía** antes del 2026-11-05, ejecuta también [`supabase/migrations/2026-11-05_add_character_gender.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/migrations/2026-11-05_add_character_gender.sql) para añadir el campo de voz/género.
+   - Si tu proyecto **ya existía** antes del 2026-11-06, ejecuta también [`supabase/migrations/2026-11-06_add_character_voice_profile.sql`](file:///C:/Users/minda/Desktop/IA%20influencer2/supabase/migrations/2026-11-06_add_character_voice_profile.sql) para añadir el perfil de voz.
 3. Asegúrate de tener creados los 3 buckets privados en **Storage**: `references`, `outputs` y `thumbnails`.
 4. Copia tu URL de proyecto (`SUPABASE_URL`), la `anon key` y la `service_role key`.
 

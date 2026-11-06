@@ -17,6 +17,7 @@ export async function streamCharacterChat(
   message: string,
   handlers: ChatStreamHandlers,
   signal: AbortSignal,
+  voice = false,
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/chat/${characterId}`, {
     method: 'POST',
@@ -24,7 +25,7 @@ export async function streamCharacterChat(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getAccessToken() ?? ''}`,
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, voice }),
     signal,
   });
 

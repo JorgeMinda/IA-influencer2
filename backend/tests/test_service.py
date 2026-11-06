@@ -2,6 +2,7 @@ import base64
 import io
 
 import pytest
+from app.main import build_chat_system_prompt
 from PIL import Image
 
 from app.core.errors import ApiError
@@ -47,6 +48,29 @@ def test_character_gender_roundtrip(svc):
     assert svc.duplicate_character(U1, c["id"])["gender"] == "male"
     c2 = svc.create_character(U1, {"name": "Neutral"})
     assert c2["gender"] == "unspecified"
+
+
+def test_character_voice_profile_roundtrip(svc):
+    profile = {"engine": "browser", "voice_name": "Google español", "preset": "calida",
+               "rate": 0.95, "pitch": 1.10, "pause_ms": 200}
+    c = svc.create_character(U1, {"name": "Voz", "voice_profile": profile})
+    assert c["voice_profile"] == profile
+    assert svc.get_character(U1, c["id"])["voice_profile"] == profile
+    new_profile = {"engine": "browser", "voice_name": None, "preset": "seria",
+                   "rate": 0.95, "pitch": 0.85, "pause_ms": 100}
+    assert svc.update_character(U1, c["id"], {"voice_profile": new_profile})["voice_profile"] == new_profile
+    assert svc.duplicate_character(U1, c["id"])["voice_profile"] == new_profile
+    c2 = svc.create_character(U1, {"name": "SinPerfil"})
+    assert c2["voice_profile"] is None
+
+
+def test_chat_system_prompt_voice_instruction():
+    char = {"name": "Jade", "visual_description": "una supermodelo", "gender": "female",
+            "invariant_traits": [], "notes": ""}
+    prompt_without = build_chat_system_prompt(char, False)
+    prompt_with = build_chat_system_prompt(char, True)
+    assert "La respuesta se dirá en voz alta" in prompt_with
+    assert "La respuesta se dirá en voz alta" not in prompt_without
 
 
 # ---- referencias ----

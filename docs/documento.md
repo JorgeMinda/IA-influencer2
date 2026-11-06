@@ -234,6 +234,25 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - Si se quiere una voz más realista que la del navegador: evaluar ElevenLabs (requiere clave y tiene límite gratuito) o TTS de Cloudflare; no implementado aún.
 - **Decisiones o cambios al contrato:** Añadido `gender` (opcional; por defecto `unspecified`). Compatible hacia atrás.
 
+﻿### 2026-11-06 — Perfil de voz (TTS) por personaje
+- **Qué cambió:**
+  - Contrato/backend: nuevo campo opcional `voice_profile` (`engine`, `voice_name`, `preset`, `rate`, `pitch`, `pause_ms`) en `CharacterCreate`, `CharacterPatch` y `Character`. Validación: rate 0.7–1.3, pitch 0.7–1.5, pause_ms 0–600, engine solo "browser". Valores fuera de rango → 422. Se guarda, se devuelve y se copia al duplicar.
+  - SQL: columna `voice_profile jsonb` en `supabase/schema.sql` (instalaciones nuevas) y migración `supabase/migrations/2026-11-06_add_character_voice_profile.sql`. `SupabaseStore` reintenta sin la columna si aún no existe.
+  - Frontend: `lib/ttsText.ts` (funciones puras `cleanForSpeech`, `splitIntoSentences`, `varyRate`); `lib/ttsEngine.ts` (interfaz `TtsEngine` + `BrowserTtsEngine`: una utterance por frase, pausa entre frases, variación ±3% de rate); `useSpeech` usa el motor y acepta `voiceProfile`. Resolución de voz: `voice_name` → voces Online/Natural/Google del español → heurística por género. Editor y alta: sección Voz (selector de voz, preset, velocidad, tono, pausa, botón Probar voz). `StudioPage` pasa el perfil al chat y al modo llamada.
+  - Chat: `ChatBody.voice` opcional; si Voz está ON, el prompt del sistema incluye la instrucción de frases cortas sin viñetas/emojis/markdown. `build_chat_system_prompt(character, voice)` extraída y testeable.
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests`: **44 passed** (nuevos `test_character_voice_profile`, `test_character_voice_profile_roundtrip`, `test_chat_system_prompt_voice_instruction`).
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **37 passed** (nuevo `ttsText.test.ts`, 14 casos + `voiceGender.test.ts`).
+  - `npm run build`: OK.
+- **Estado:** ✅ Verificado por pruebas automatizadas · 🟡 falta probar audio real en Chrome/Edge (crear dos personajes con presets distintos y pulsar **Probar voz**).
+- **Pendiente o siguiente paso:**
+  - Ejecutar la migración de `voice_profile` en Supabase y probar en Chrome/Edge.
+  - Evaluar TTS más natural (ElevenLabs/Cloudflare) como fase posterior; fuera de alcance en esta tarea.
+- **Decisiones o cambios al contrato:** Añadido `voice_profile` (opcional; por defecto `null`). Compatible hacia atrás.
+
+---
+
 ---
 
 ## 7. Cómo se actualiza este documento

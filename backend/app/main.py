@@ -34,6 +34,17 @@ log = logging.getLogger("acs")
 
 # ---------- cuerpos de petición ----------
 Gender = Literal["female", "male", "neutral", "unspecified"]
+VoicePreset = Literal["calida", "energica", "serena", "seria", "custom"]
+VoiceEngine = Literal["browser"]
+
+
+class VoiceProfile(BaseModel):
+    engine: VoiceEngine = "browser"
+    voice_name: str | None = None
+    preset: VoicePreset = "custom"
+    rate: float = Field(1.0, ge=0.7, le=1.3)
+    pitch: float = Field(1.0, ge=0.7, le=1.5)
+    pause_ms: int = Field(200, ge=0, le=600)
 
 
 class CharacterCreate(BaseModel):
@@ -42,6 +53,7 @@ class CharacterCreate(BaseModel):
     invariant_traits: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field("", max_length=4000)
     gender: Gender = "unspecified"
+    voice_profile: VoiceProfile | None = None
 
 
 class CharacterPatch(BaseModel):
@@ -51,6 +63,7 @@ class CharacterPatch(BaseModel):
     notes: str | None = Field(None, max_length=4000)
     archived: bool | None = None
     gender: Gender | None = None
+    voice_profile: VoiceProfile | None = None
 
 
 class GenerationCreate(BaseModel):
@@ -88,6 +101,7 @@ class ArtifactPatch(BaseModel):
 
 class ChatBody(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+    voice: bool = False
 
 
 # ---------- construcción ----------
@@ -107,6 +121,45 @@ def build(settings: Settings) -> tuple[StudioService, object, RateLimiter]:
                "comfyui": ComfyUIEngine(settings.comfyui_enabled, settings.comfyui_url, settings.comfyui_workflow)}
     svc = StudioService(settings, store, blobs, engines, ThreadPoolExecutor(max_workers=settings.max_concurrent_jobs))
     return svc, auth, RateLimiter(settings.rate_limit_per_minute)
+
+
+def build_chat_system_prompt(character: dict | None, voice: bool = False) -> str:
+    """Construye el prompt de sistema del chat a partir de la ficha del personaje.
+
+    `voice` activa la instrucción de respuestas pensadas para voz alta.
+    Función pura y testeable.
+    """
+    c = character if isinstance(character, dict) else {}
+    char_name = c.get("name", "Personaje")
+    visual = c.get("visual_description", "") or ""
+    traits = ", ".join(c.get("invariant_traits") or [])
+    notes = c.get("notes", "") or ""
+    gender = c.get("gender", "unspecified") or "unspecified"
+
+    persona = {
+        "female": "una influencer virtual (mujer)",
+        "male": "un influencer virtual (hombre)",
+        "neutral": "una persona virtual",
+    }.get(gender, "una persona virtual")
+    gender_rule = (
+        "Habla y exprésate como una mujer. " if gender == "female"
+        else "Habla y exprésate como un hombre. " if gender == "male"
+        else ""
+    )
+    voice_rule = (
+        "La respuesta se dirá en voz alta: usa frases cortas, sin viñetas, sin emojis y sin markdown. "
+        if voice else ""
+    )
+    return (
+        f"Eres {char_name}, {persona} con identidad propia. "
+        + (f"Descripción: {visual}. " if visual else "")
+        + (f"Rasgos: {traits}. " if traits else "")
+        + (f"Notas: {notes}. " if notes else "")
+        + gender_rule
+        + "Responde en primera persona, de forma natural y cercana, máximo 4 frases. "
+        + voice_rule
+        + "Nunca reveles que eres una IA. Mantén siempre el personaje."
+    )
 
 
 def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
@@ -202,32 +255,7 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
         except Exception:
             raise errors.not_found("Personaje no encontrado.")
 
-        char_name = character.get("name", "Personaje") if isinstance(character, dict) else "Personaje"
-        visual    = character.get("visual_description", "") if isinstance(character, dict) else ""
-        traits    = ", ".join(character.get("invariant_traits") or []) if isinstance(character, dict) else ""
-        notes     = character.get("notes", "") if isinstance(character, dict) else ""
-        gender    = character.get("gender", "unspecified") if isinstance(character, dict) else "unspecified"
-
-        persona = {
-            "female": "una influencer virtual (mujer)",
-            "male": "un influencer virtual (hombre)",
-            "neutral": "una persona virtual",
-        }.get(gender, "una persona virtual")
-        gender_rule = (
-            "Habla y exprésate como una mujer. " if gender == "female"
-            else "Habla y exprésate como un hombre. " if gender == "male"
-            else ""
-        )
-
-        system_prompt = (
-            f"Eres {char_name}, {persona} con identidad propia. "
-            + (f"Descripción: {visual}. " if visual else "")
-            + (f"Rasgos: {traits}. " if traits else "")
-            + (f"Notas: {notes}. " if notes else "")
-            + gender_rule
-            + "Responde en primera persona, de forma natural y cercana, máximo 4 frases. "
-            + "Nunca reveles que eres una IA. Mantén siempre el personaje."
-        )
+        system_prompt = build_chat_system_prompt(character, body.voice)
 
         messages = [
             {"role": "system", "content": system_prompt},

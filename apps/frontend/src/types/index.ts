@@ -11,6 +11,17 @@ export interface Paginated<T> {
 }
 
 export type CharacterGender = 'female' | 'male' | 'neutral' | 'unspecified';
+export type VoicePreset = 'calida' | 'energica' | 'serena' | 'seria' | 'custom';
+export type VoiceEngine = 'browser';
+
+export interface VoiceProfile {
+  engine: VoiceEngine;
+  voice_name: string | null;
+  preset: VoicePreset;
+  rate: number;
+  pitch: number;
+  pause_ms: number;
+}
 
 export interface Character {
   id: string;
@@ -20,6 +31,8 @@ export interface Character {
   notes: string;
   /** Género/voz del personaje. Puede faltar en respuestas antiguas. */
   gender?: CharacterGender;
+  /** Perfil de voz del personaje. Puede faltar en respuestas antiguas. */
+  voice_profile?: VoiceProfile | null;
   archived: boolean;
   reference_count: number;
   created_at: string;
@@ -32,6 +45,7 @@ export interface CharacterInput {
   invariant_traits?: string[];
   notes?: string;
   gender?: CharacterGender;
+  voice_profile?: VoiceProfile | null;
 }
 
 export type CharacterPatch = Partial<CharacterInput> & { archived?: boolean };

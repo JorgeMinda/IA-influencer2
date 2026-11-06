@@ -48,6 +48,14 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
   "invariant_traits": ["cabello rizado castaño", "ojos verdes", "pecas"],
   "notes": "",
   "gender": "female",
+  "voice_profile": {
+    "engine": "browser",
+    "voice_name": "Google español",
+    "preset": "calida",
+    "rate": 0.95,
+    "pitch": 1.10,
+    "pause_ms": 200
+  },
   "archived": false,
   "reference_count": 3,
   "created_at": "…", "updated_at": "…"
@@ -55,6 +63,7 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 ```
 Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_traits` hasta 20 ítems de 1–120, `notes` 0–4000.
 `gender` es opcional en la entrada (`female | male | neutral | unspecified`, por defecto `unspecified`) y determina la voz del personaje (chat y modo llamada). Si falta o es `unspecified`, el cliente lo infiere de `visual_description`, `name`, rasgos y notas.
+`voice_profile` es opcional en la entrada y en la salida. Si es `null` o falta, el frontend usa el comportamiento actual (voz por género). Forma: `{ "engine": "browser", "voice_name": string | null, "preset": "calida" | "energica" | "serena" | "seria" | "custom", "rate": number (0.7–1.3), "pitch": number (0.7–1.5), "pause_ms": integer (0–600) }`. `engine` solo admite `"browser"` por ahora. Valores fuera de rango → 422. Se copia al duplicar el personaje. Compatible hacia atrás: los personajes sin `voice_profile` siguen funcionando.
 
 ### ReferenceImage
 ```json
@@ -125,7 +134,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 | Ruta | Descripción |
 |---|---|
 | `GET /api/characters?include_archived=false&q=&limit=&offset=` | Lista `{items: Character[], total}` |
-| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`, `gender?` (`female`\|`male`\|`neutral`\|`unspecified`). → `201 Character` |
+| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`, `gender?` (`female`\|`male`\|`neutral`\|`unspecified`), `voice_profile?`. → `201 Character` |
 | `GET /api/characters/{id}` | Ficha |
 | `PATCH /api/characters/{id}` | Actualización parcial (incluye `archived`) |
 | `POST /api/characters/{id}/duplicate` | Copia la ficha (sin referencias ni resultados), nombre `"<name> (copia)"`. → `201` |

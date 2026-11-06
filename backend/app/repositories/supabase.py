@@ -57,9 +57,14 @@ class SupabaseStore:
 
     def insert(self, table: str, row: dict) -> dict:
         res = self._req("POST", f"/{table}", json=row, prefer="return=representation")
-        # Despliegue sin la migración de `gender`: reintenta sin esa columna.
-        if "gender" in row and _missing_column(res, "gender"):
-            row = {k: v for k, v in row.items() if k != "gender"}
+        # Despliegue sin la migración de `gender` / `voice_profile`: reintenta sin la columna faltante.
+        missing = None
+        if _missing_column(res, "gender"):
+            missing = "gender"
+        elif _missing_column(res, "voice_profile"):
+            missing = "voice_profile"
+        if missing is not None and missing in row:
+            row = {k: v for k, v in row.items() if k != missing}
             res = self._req("POST", f"/{table}", json=row, prefer="return=representation")
         _check(res, f"insert {table}")
         return res.json()[0]
@@ -87,9 +92,14 @@ class SupabaseStore:
     def update(self, table: str, id: str, user_id: str, patch: dict, expect: dict | None = None) -> dict | None:
         params = [("id", f"eq.{id}"), ("user_id", f"eq.{user_id}")] + [(k, f"eq.{v}") for k, v in (expect or {}).items()]
         res = self._req("PATCH", f"/{table}", params=params, json=patch, prefer="return=representation")
-        # Despliegue sin la migración de `gender`: reintenta sin esa columna.
-        if "gender" in patch and _missing_column(res, "gender"):
-            patch = {k: v for k, v in patch.items() if k != "gender"}
+        # Despliegue sin la migración de `gender` / `voice_profile`: reintenta sin la columna faltante.
+        missing = None
+        if _missing_column(res, "gender"):
+            missing = "gender"
+        elif _missing_column(res, "voice_profile"):
+            missing = "voice_profile"
+        if missing is not None and missing in patch:
+            patch = {k: v for k, v in patch.items() if k != missing}
             res = self._req("PATCH", f"/{table}", params=params, json=patch, prefer="return=representation")
         _check(res, f"update {table}")
         rows = res.json()

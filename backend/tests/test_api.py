@@ -67,6 +67,27 @@ def test_character_gender():
     assert client.post("/api/characters", json={"name": "X", "gender": "invalid"}).status_code == 422
 
 
+def test_character_voice_profile():
+    profile = {"engine": "browser", "voice_name": None, "preset": "calida",
+               "rate": 0.95, "pitch": 1.10, "pause_ms": 200}
+    r = client.post("/api/characters", json={"name": "Voz", "voice_profile": profile})
+    assert r.status_code == 201
+    char = r.json()
+    assert char["voice_profile"] == profile
+    assert client.get(f"/api/characters/{char['id']}").json()["voice_profile"] == profile
+    # voice_profile ausente en el PATCH no modifica el perfil existente (exclude_none)
+    assert client.patch(f"/api/characters/{char['id']}", json={"name": "Voz2"}).json()["voice_profile"] == profile
+    # rangos inválidos
+    bad = {"engine": "browser", "voice_name": None, "preset": "calida", "rate": 2.0, "pitch": 1.0, "pause_ms": 200}
+    assert client.post("/api/characters", json={"name": "Bad", "voice_profile": bad}).status_code == 422
+    bad2 = {"engine": "browser", "voice_name": None, "preset": "calida", "rate": 1.0, "pitch": 0.5, "pause_ms": 200}
+    assert client.post("/api/characters", json={"name": "Bad2", "voice_profile": bad2}).status_code == 422
+    bad3 = {"engine": "browser", "voice_name": None, "preset": "calida", "rate": 1.0, "pitch": 1.0, "pause_ms": 999}
+    assert client.post("/api/characters", json={"name": "Bad3", "voice_profile": bad3}).status_code == 422
+    bad4 = {"engine": "browser", "voice_name": None, "preset": "calida", "rate": 1.0, "pitch": 1.0, "pause_ms": 200, "engine": "x"}
+    assert client.post("/api/characters", json={"name": "Bad4", "voice_profile": bad4}).status_code == 422
+
+
 def test_list_characters():
     r = client.get("/api/characters")
     assert r.status_code == 200

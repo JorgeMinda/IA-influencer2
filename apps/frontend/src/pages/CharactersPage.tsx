@@ -11,13 +11,22 @@ import { useDebounced } from '../hooks/useAsync';
 import { usePagedList } from '../hooks/usePagedList';
 import { errorMessage } from '../lib/format';
 import { createCharacter, deleteCharacter, duplicateCharacter, listCharacters, updateCharacter } from '../services/endpoints';
-import type { Character, CharacterGender } from '../types';
+import type { Character, CharacterGender, VoicePreset } from '../types';
+
+const PRESET_VALUES: Record<VoicePreset, { rate: number; pitch: number }> = {
+  calida: { rate: 0.95, pitch: 1.10 },
+  energica: { rate: 1.10, pitch: 1.20 },
+  serena: { rate: 0.88, pitch: 0.95 },
+  seria: { rate: 0.95, pitch: 0.85 },
+  custom: { rate: 1.0, pitch: 1.0 },
+};
 
 function NewCharacterDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [gender, setGender] = useState<CharacterGender>('unspecified');
+  const [preset, setPreset] = useState<VoicePreset>('custom');
   const [errors, setErrors] = useState<{ name?: string; visualDescription?: string }>({});
   const [apiError, setApiError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -30,7 +39,20 @@ function NewCharacterDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setApiError(null);
     try {
-      const c = await createCharacter({ name: name.trim(), visual_description: description, gender });
+      const pv = PRESET_VALUES[preset];
+      const c = await createCharacter({
+        name: name.trim(),
+        visual_description: description,
+        gender,
+        voice_profile: {
+          engine: 'browser',
+          voice_name: null,
+          preset,
+          rate: pv.rate,
+          pitch: pv.pitch,
+          pause_ms: 200,
+        },
+      });
       navigate(`/personajes/${c.id}`);
     } catch (err) {
       setApiError(err);
@@ -53,6 +75,19 @@ function NewCharacterDialog({ onClose }: { onClose: () => void }) {
             { value: 'neutral', label: 'Neutra' },
           ]}
           hint="Se usa para elegir la voz del personaje."
+        />
+        <SelectField
+          label="Preset de voz"
+          value={preset}
+          onChange={(v) => setPreset(v as VoicePreset)}
+          options={[
+            { value: 'calida', label: 'Cálida' },
+            { value: 'energica', label: 'Enérgica' },
+            { value: 'serena', label: 'Serena' },
+            { value: 'seria', label: 'Seria' },
+            { value: 'custom', label: 'Personalizado' },
+          ]}
+          hint="Ajusta velocidad y tono en la ficha del personaje."
         />
         {apiError ? <ErrorNotice error={apiError} title="No se pudo crear el personaje." /> : null}
         <div className="actions">

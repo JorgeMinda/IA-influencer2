@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserTtsEngine, type ResolvedVoiceProfile } from '../lib/ttsEngine';
 import { pickVoiceForGender } from '../lib/voiceGender';
 import type { CharacterGender } from '../types';
 
@@ -34,11 +35,33 @@ function getRecognitionCtor(): RecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-/**
- * Voz del personaje (TTS) y dictado por micrófono (STT) usando las APIs nativas
- * del navegador. Sin backend ni costo. TTS: Chrome/Edge/Safari. STT: Chrome/Edge.
- */
-export function useSpeech(initialEnabled = false, voiceGender: CharacterGender = 'unspecified') {
+export interface VoiceProfileInput {
+  voice_name?: string | null;
+  preset?: string;
+  rate?: number;
+  pitch?: number;
+  pause_ms?: number;
+}
+
+export function toResolvedProfile(
+  profile: VoiceProfileInput | null | undefined,
+  gender: CharacterGender,
+): ResolvedVoiceProfile {
+  const base: ResolvedVoiceProfile = {
+    voiceName: profile?.voice_name ?? null,
+    gender,
+    rate: typeof profile?.rate === 'number' ? profile.rate : 1.0,
+    pitch: typeof profile?.pitch === 'number' ? profile.pitch : 1.0,
+    pauseMs: typeof profile?.pause_ms === 'number' ? profile.pause_ms : 200,
+  };
+  // Si no hay perfil, usar la heurística de género para elegir la voz.
+  if (!profile?.voice_name) {
+    // Dejar voiceName null; el motor elige por género si no hay nombre.
+  }
+  return base;
+}
+
+export function useSpeech(initialEnabled = false, voiceGender: CharacterGender = 'unspecified', voiceProfile: VoiceProfileInput | null = null) {
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
   const RecCtor = getRecognitionCtor();
   const sttSupported = RecCtor !== null;
@@ -48,9 +71,16 @@ export function useSpeech(initialEnabled = false, voiceGender: CharacterGender =
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const engineRef = useRef<BrowserTtsEngine | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  // Precarga las voces del navegador (se cargan de forma asíncrona).
+  useEffect(() => {
+    engineRef.current = new BrowserTtsEngine();
+    return () => {
+      engineRef.current?.stop();
+    };
+  }, []);
+
   useEffect(() => {
     if (!ttsSupported) return;
     const warm = () => window.speechSynthesis.getVoices();
@@ -59,34 +89,30 @@ export function useSpeech(initialEnabled = false, voiceGender: CharacterGender =
     return () => window.speechSynthesis.removeEventListener('voiceschanged', warm);
   }, [ttsSupported]);
 
+  const profile = toResolvedProfile(voiceProfile, voiceGender);
+
   const stopSpeaking = useCallback(() => {
-    if (!ttsSupported) return;
-    window.speechSynthesis.cancel();
+    engineRef.current?.stop();
     setSpeaking(false);
-  }, [ttsSupported]);
+  }, []);
 
   const speak = useCallback(
     (text: string) => {
       if (!ttsSupported || !enabled) return;
-      const clean = text
-        .replace(/[*_`#>]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (!clean) return;
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(clean);
-      // Resolver la voz en cada reproducción: la lista carga de forma asíncrona.
-      const voice = pickVoiceForGender(window.speechSynthesis.getVoices(), voiceGender);
-      utter.lang = voice?.lang ?? 'es-ES';
-      if (voice) utter.voice = voice;
-      utter.rate = 1;
-      utter.pitch = voiceGender === 'male' ? 0.9 : voiceGender === 'female' ? 1.08 : 1;
-      utter.onstart = () => setSpeaking(true);
-      utter.onend = () => setSpeaking(false);
-      utter.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utter);
+      const engine = engineRef.current;
+      if (!engine) return;
+      // Resolver la voz por nombre si está en el perfil, si no, por género.
+      const voices = window.speechSynthesis.getVoices();
+      let voiceName = profile.voiceName;
+      if (!voiceName) {
+        const chosen = pickVoiceForGender(voices, voiceGender);
+        voiceName = chosen?.name ?? null;
+      }
+      const resolved: ResolvedVoiceProfile = { ...profile, voiceName };
+      engine.speak(text, resolved, () => setSpeaking(false));
+      setSpeaking(true);
     },
-    [ttsSupported, enabled, voiceGender],
+    [ttsSupported, enabled, profile, voiceGender],
   );
 
   const stopListening = useCallback(() => {

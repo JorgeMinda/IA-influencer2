@@ -4,12 +4,13 @@ import { fileUrl } from '../services/api';
 import { listReferences } from '../services/endpoints';
 import { streamCharacterChat } from '../services/characterChat';
 import { Monogram } from './ImageFrame';
-import type { CharacterGender } from '../types';
+import type { CharacterGender, VoiceProfile } from '../types';
 
 interface CallModeProps {
   characterId: string;
   characterName: string;
   voiceGender?: CharacterGender;
+  voiceProfile?: VoiceProfile | null;
   onClose: () => void;
 }
 
@@ -19,8 +20,8 @@ type CallStatus = 'idle' | 'listening' | 'thinking' | 'speaking';
  * Videollamada simulada: avatar del personaje + voz (TTS) + micrófono (STT).
  * No usa WebRTC ni lipsync (eso requiere GPU). Funciona con las APIs del navegador.
  */
-export function CallMode({ characterId, characterName, voiceGender, onClose }: CallModeProps) {
-  const speech = useSpeech(true, voiceGender ?? 'unspecified');
+export function CallMode({ characterId, characterName, voiceGender, voiceProfile, onClose }: CallModeProps) {
+  const speech = useSpeech(true, voiceGender ?? 'unspecified', voiceProfile ?? null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export function CallMode({ characterId, characterName, voiceGender, onClose }: C
             },
           },
           controller.signal,
+          true,
         );
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;

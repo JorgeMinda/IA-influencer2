@@ -43,7 +43,9 @@ class StudioService:
     def _char_out(self, r: dict, refs: int) -> dict:
         return {"id": r["id"], "name": r["name"], "visual_description": r["visual_description"],
                "invariant_traits": r["invariant_traits"], "notes": r["notes"],
-               "gender": r.get("gender", "unspecified"), "archived": r["archived"],
+               "gender": r.get("gender", "unspecified"),
+               "voice_profile": r.get("voice_profile"),
+               "archived": r["archived"],
                "reference_count": refs, "created_at": r["created_at"], "updated_at": r.get("updated_at", r["created_at"])}
 
     def _ref_out(self, r: dict) -> dict:
@@ -98,6 +100,7 @@ class StudioService:
                                           "invariant_traits": data.get("invariant_traits") or [],
                                           "notes": data.get("notes") or "",
                                           "gender": data.get("gender") or "unspecified",
+                                          "voice_profile": data.get("voice_profile"),
                                           "archived": False, "updated_at": _now()})
         return self._char_out(r, 0)
 
@@ -106,7 +109,7 @@ class StudioService:
         return self._char_out(r, self._ref_counts(user, [cid])[cid])
 
     def update_character(self, user: str, cid: str, patch: dict) -> dict:
-        allowed = {k: v for k, v in patch.items() if k in {"name", "visual_description", "invariant_traits", "notes", "archived", "gender"}}
+        allowed = {k: v for k, v in patch.items() if k in {"name", "visual_description", "invariant_traits", "notes", "archived", "gender", "voice_profile"}}
         self._char(user, cid)
         r = self.db.update("characters", cid, user, {**allowed, "updated_at": _now()}) if allowed else self._char(user, cid)
         if not r:
@@ -117,7 +120,8 @@ class StudioService:
         c = self._char(user, cid)
         return self.create_character(user, {"name": f"{c['name']} (copia)"[:80], "visual_description": c["visual_description"],
                                            "invariant_traits": c["invariant_traits"], "notes": c["notes"],
-                                           "gender": c.get("gender", "unspecified")})
+                                           "gender": c.get("gender", "unspecified"),
+                                           "voice_profile": c.get("voice_profile")})
 
     def _storage_paths(self, user: str, table: str, col: str, value: str) -> list[tuple[str, str]]:
         out: list[tuple[str, str]] = []
