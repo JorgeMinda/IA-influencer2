@@ -204,6 +204,14 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
     _cors_origins = ["*"] if settings.is_dev else list(settings.cors_origins)
     app.add_middleware(CORSMiddleware, allow_origins=_cors_origins, allow_methods=["*"],
                        allow_headers=["*"], allow_credentials=False, max_age=600)
+
+    @app.middleware("http")
+    async def _security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        return response
     if not settings.use_supabase:
         log.warning("MODO DESARROLLO sin Supabase: usuario fijo, datos en memoria, solo 127.0.0.1.")
 
