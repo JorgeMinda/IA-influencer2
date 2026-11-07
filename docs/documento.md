@@ -271,6 +271,22 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - HTTPS/túnel para acceder desde el teléfono.
 - **Decisiones o cambios al contrato:** Ninguno.
 
+﻿### 2026-11-06 (4) — Smoke script Comfy Cloud (Fase 1)
+- **Qué cambió:**
+  - Creado `scripts/comfy_cloud_smoke.py`: lee `COMFY_CLOUD_API_KEY` del entorno (nunca impresa), carga el flujo API + mapeo, sube imagen (multipart), aplica mapeo, envía con `/api/prompt`, espera por WebSocket (`executed`/`execution_success`/`execution_error`) con respaldo REST `/api/job/{id}/status`, descarga con `/api/view` manejando el 302 sin enviar la clave a la URL firmada. Imprime estado, tiempos, errores y nombres de archivo. Nunca imprime la clave ni la URL del WS.
+  - `.env.example` actualizado con `COMFY_CLOUD_API_KEY` y `COMFY_CLOUD_BASE_URL`.
+  - Dependencias: `httpx` y `websockets` (ya disponibles en el entorno).
+- **Evidencia (comandos y resultados reales):**
+  - `python -m py_compile scripts/comfy_cloud_smoke.py`: OK, sin warnings.
+  - Ejecución real: llegó a la API, autenticó, pero recibió `403 FREE_TIER_NOT_ALLOWED` ("API key authentication is not available for free tier accounts"). Bloqueador: la cuenta de Comfy Cloud es de tier gratuito; la API requiere suscripción activa.
+- **Estado:** 🟡 Script listo y probado hasta el error de tier. Falta salida real con clip descargado (requiere suscripción activa).
+- **Pendiente o siguiente paso:**
+  - Suscribirse a Comfy Cloud (o conseguir GPU local) y volver a ejecutar el comando del README para obtener el clip.
+  - Fase 2 (motor `comfy_cloud` en backend) bloqueada hasta la salida real de Fase 1.
+- **Decisiones o cambios al contrato:** Ninguno.
+
+---
+
 ﻿### 2026-11-06 (3) — Scaffolding video / baile / faceswap
 - **Qué cambió:**
   - Contrato: nueva sección "Video, baile y faceswap (scaffolding)" en `docs/api-contracts.md` (`POST /api/videos`, `/api/dances`, `/api/faceswaps`, `GET /api/videos`, `GET /api/videos/{id}`) con validación 422 y respuesta 503 `provider_unavailable` mientras no haya motor de video.
