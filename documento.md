@@ -251,6 +251,26 @@ Entorno de ejecución verificado: Windows 11, Python 3.14.5, Node.js v22.23.0, n
   - Evaluar TTS más natural (ElevenLabs/Cloudflare) como fase posterior; fuera de alcance en esta tarea.
 - **Decisiones o cambios al contrato:** Añadido `voice_profile` (opcional; por defecto `null`). Compatible hacia atrás.
 
+﻿### 2026-11-07 — Fase 2 paso 1: brand_profile (Hallmark) backend + contrato
+- **Qué cambió:**
+  - Contrato: `brand_profile` añadido a `Character` (objeto semántico: watermark_url, watermark_position, watermark_opacity, watermark_size, palette como objeto, typography union cerrado, style_guide). `POST /api/characters` acepta `brand_profile?`.
+  - Backend: `BrandProfile` (pydantic) en `main.py`, campo en `CharacterCreate`/`CharacterPatch`, `_char_out`/create/update/duplicate en `studio.py`, retry en `SupabaseStore`, columna `brand_profile jsonb` en `schema.sql` + migración `2026-11-06_add_character_brand_profile.sql`.
+  - Anti-slop: `_hex_to_color_name` + `_enrich_prompt_with_brand` en `studio.py` (inyecta guía de estilo y paleta en el prompt de generación). `build_chat_system_prompt` inyecta `style_guide` + nombres de colores de la paleta en el system prompt del chat.
+  - Frontend: `BrandProfile` type en `types/index.ts`. Tab "Identidad" en `CharacterDetailPage` renderiza `BrandProfileEditor.tsx` (watermark DataURL <200KB, paleta semántica con color pickers, tipografía select, guía de estilo, preview con watermark de texto fallback usando nombre del personaje).
+- **Evidencia (comandos y resultados reales):**
+  - `python -m pytest tests`: **49 passed** (nuevos `test_character_brand_profile`, `test_character_brand_profile_roundtrip`, `test_chat_system_prompt_style_injection`, `test_enrich_prompt_with_brand`).
+  - `npm run typecheck`: **0 errores**.
+  - `npm test`: **37 passed**.
+  - `npm run build`: OK.
+- **Estado:** ✅ Verificado por pruebas automatizadas · 🟡 falta renderizar watermark en Galería (Canvas) y quick overrides en Estudio (Fase 2 pasos 3-4).
+- **Pendiente o siguiente paso:**
+  - Paso 3: Canvas renderer en Galería con dos paths (imagen watermark / texto watermark) + botón exportar.
+  - Paso 4: Quick override en Estudio (switch "Aplicar marca").
+  - Inyección de tokens en prompts de video cuando exista motor.
+- **Decisiones o cambios al contrato:** Añadido `brand_profile` (opcional; por defecto `null`). Compatible hacia atrás.
+
+---
+
 ﻿### 2026-11-06 (2) — Endurecimiento de seguridad
 - **Qué cambió:**
   - RLS: eliminada la política `own_modify` de `supabase/schema.sql` y nueva migración `supabase/migrations/2026-11-06_drop_own_modify_policy.sql`. Las escrituras solo las hace el backend con `service_role`.
