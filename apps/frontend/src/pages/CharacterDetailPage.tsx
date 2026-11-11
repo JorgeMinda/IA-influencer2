@@ -5,6 +5,7 @@ import { EmptyState, ErrorNotice, Skeleton } from '../components/Feedback';
 import { ImageFrame } from '../components/ImageFrame';
 import { useToast } from '../components/Toast';
 import { CharacterEditor } from '../features/characters/CharacterEditor';
+import { VoiceProfileEditor } from '../features/characters/VoiceProfileEditor';
 import { ConsistencyTest } from '../features/characters/ConsistencyTest';
 import { ReferenceUploadForm } from '../features/characters/ReferenceUploadForm';
 import { useAsync } from '../hooks/useAsync';
@@ -23,6 +24,7 @@ export function CharacterDetailPage() {
   const refs = useAsync((signal) => listReferences(id, { signal }), [id]);
   const [toDeleteRef, setToDeleteRef] = useState<ReferenceImage | null>(null);
   const [deletingCharacter, setDeletingCharacter] = useState(false);
+  const [tab, setTab] = useState<'ficha' | 'identidad' | 'voz'>('ficha');
 
   if (character.loading && !character.data) {
     return (
@@ -79,7 +81,47 @@ export function CharacterDetailPage() {
         </div>
       </div>
 
-      <CharacterEditor key={c.id} character={c} onSaved={(saved) => character.setData(saved)} />
+      {/* Tabs */}
+      <div className="studio-tabs" role="tablist" aria-label="Secciones del personaje">
+        <button role="tab" aria-selected={tab === 'ficha'} className={`studio-tab${tab === 'ficha' ? ' is-active' : ''}`} onClick={() => setTab('ficha')}>
+          Ficha
+        </button>
+        <button role="tab" aria-selected={tab === 'identidad'} className={`studio-tab${tab === 'identidad' ? ' is-active' : ''}`} onClick={() => setTab('identidad')}>
+          Identidad
+        </button>
+        <button role="tab" aria-selected={tab === 'voz'} className={`studio-tab${tab === 'voz' ? ' is-active' : ''}`} onClick={() => setTab('voz')}>
+          Voz
+        </button>
+      </div>
+
+      {tab === 'ficha' ? (
+        <CharacterEditor key={c.id} character={c} onSaved={(saved) => character.setData(saved)} />
+      ) : null}
+
+      {tab === 'identidad' ? (
+        <div className="card stack" aria-label="Identidad visual del personaje">
+          <h2>Identidad visual</h2>
+          <p className="hint">
+            La guía de estilo, paleta y watermark se configurarán aquí. Próximamente: inyección de tokens de estilo en los prompts de generación y watermark en exportación.
+          </p>
+          <div className="field">
+            <label htmlFor="style-guide">Guía de estilo</label>
+            <textarea
+              id="style-guide"
+              className="input"
+              rows={4}
+              placeholder="Tono, mood, do's y don'ts del personaje…"
+              defaultValue={c.notes}
+              disabled
+            />
+            <p className="hint">Disponible en la siguiente fase.</p>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'voz' ? (
+        <VoiceProfileEditor key={c.id} character={c} onSaved={(saved) => character.setData(saved)} />
+      ) : null}
 
       <section className="section" aria-labelledby="refs-h">
         <div className="section-head">

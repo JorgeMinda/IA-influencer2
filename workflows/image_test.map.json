@@ -1,0 +1,26 @@
+{
+  "workflow_file": "image_test_api.json",
+  "inputs": {
+    "prompt": {
+      "node": "67",
+      "field": "text"
+    },
+    "negative_prompt": {
+      "node": "71",
+      "field": "text"
+    },
+    "seed": {
+      "node": "70",
+      "field": "seed"
+    },
+    "width": {
+      "node": "68",
+      "field": "width"
+    },
+    "height": {
+      "node": "68",
+      "field": "height"
+    }
+  },
+  "output_node": "9"
+}
