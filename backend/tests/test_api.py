@@ -88,6 +88,23 @@ def test_character_voice_profile():
     assert client.post("/api/characters", json={"name": "Bad4", "voice_profile": bad4}).status_code == 422
 
 
+def test_character_brand_profile():
+    brand = {"watermark_url": None, "watermark_position": "bottom-right", "watermark_opacity": 40,
+             "watermark_size": "md", "palette": {"primary": "#6366f1", "secondary": "#1e293b", "accent": "#f59e0b"},
+             "typography": "sans", "style_guide": "tono cercano"}
+    r = client.post("/api/characters", json={"name": "Marca", "brand_profile": brand})
+    assert r.status_code == 201
+    char = r.json()
+    assert char["brand_profile"] == brand
+    assert client.get(f"/api/characters/{char['id']}").json()["brand_profile"] == brand
+    # tipografía inválida → 422
+    bad = {**brand, "typography": "comic"}
+    assert client.post("/api/characters", json={"name": "Bad", "brand_profile": bad}).status_code == 422
+    # watermark_position inválida → 422
+    bad2 = {**brand, "watermark_position": "top"}
+    assert client.post("/api/characters", json={"name": "Bad2", "brand_profile": bad2}).status_code == 422
+
+
 def test_video_scaffolding():
     # inválido → 422
     assert client.post("/api/videos", json={}).status_code == 422

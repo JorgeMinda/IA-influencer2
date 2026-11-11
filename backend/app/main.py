@@ -47,6 +47,16 @@ class VoiceProfile(BaseModel):
     pause_ms: int = Field(200, ge=0, le=600)
 
 
+class BrandProfile(BaseModel):
+    watermark_url: str | None = None
+    watermark_position: Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"] = "bottom-right"
+    watermark_opacity: int = Field(40, ge=0, le=100)
+    watermark_size: Literal["sm", "md", "lg"] = "md"
+    palette: dict[str, str] = Field(default_factory=lambda: {"primary": "#6366f1", "secondary": "#1e293b", "accent": "#f59e0b"})
+    typography: Literal["sans", "serif", "mono", "display"] = "sans"
+    style_guide: str = Field("", max_length=2000)
+
+
 class CharacterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     visual_description: str = Field("", max_length=2000)
@@ -54,6 +64,7 @@ class CharacterCreate(BaseModel):
     notes: str = Field("", max_length=4000)
     gender: Gender = "unspecified"
     voice_profile: VoiceProfile | None = None
+    brand_profile: BrandProfile | None = None
 
 
 class CharacterPatch(BaseModel):
@@ -64,6 +75,7 @@ class CharacterPatch(BaseModel):
     archived: bool | None = None
     gender: Gender | None = None
     voice_profile: VoiceProfile | None = None
+    brand_profile: BrandProfile | None = None
 
 
 class GenerationCreate(BaseModel):
@@ -151,10 +163,38 @@ def build(settings: Settings) -> tuple[StudioService, object, RateLimiter]:
     return svc, auth, RateLimiter(settings.rate_limit_per_minute)
 
 
+_HEX_TO_COLOR = {
+    "#ff0000": "rojo", "#00ff00": "verde", "#0000ff": "azul",
+    "#ffff00": "amarillo", "#ff00ff": "magenta", "#00ffff": "cian",
+    "#000000": "negro", "#ffffff": "blanco", "#808080": "gris",
+    "#ffa500": "naranja", "#800080": "morado", "#ffc0cb": "rosa",
+    "#a52a2a": "marrón", "#008000": "verde oscuro", "#000080": "azul marino",
+}
+
+
+def _hex_to_color_name(hexv: str) -> str:
+    h = (hexv or "").strip().lower()
+    if h in _HEX_TO_COLOR:
+        return _HEX_TO_COLOR[h]
+    # buscar el más cercano por distancia euclidiana en RGB
+    try:
+        r = int(h[1:3], 16); g = int(h[3:5], 16); b = int(h[5:7], 16)
+    except (ValueError, IndexError):
+        return h
+    best, best_d = None, 10**9
+    for k, v in _HEX_TO_COLOR.items():
+        kr, kg, kb = int(k[1:3], 16), int(k[3:5], 16), int(k[5:7], 16)
+        d = (r-kr)**2 + (g-kg)**2 + (b-kb)**2
+        if d < best_d:
+            best_d, best = d, v
+    return best or h
+
+
 def build_chat_system_prompt(character: dict | None, voice: bool = False) -> str:
     """Construye el prompt de sistema del chat a partir de la ficha del personaje.
 
     `voice` activa la instrucción de respuestas pensadas para voz alta.
+    Inyecta la guía de estilo y la paleta (anti-slop) si existen.
     Función pura y testeable.
     """
     c = character if isinstance(character, dict) else {}
@@ -178,11 +218,31 @@ def build_chat_system_prompt(character: dict | None, voice: bool = False) -> str
         "La respuesta se dirá en voz alta: usa frases cortas, sin viñetas, sin emojis y sin markdown. "
         if voice else ""
     )
+
+    # Anti-slop: inyectar guía de estilo y paleta como tokens.
+    brand = c.get("brand_profile") or {}
+    style_guide = (brand.get("style_guide") or "").strip() if isinstance(brand, dict) else ""
+    palette = brand.get("palette") if isinstance(brand, dict) else None
+    palette_names = ""
+    if isinstance(palette, dict):
+        names = []
+        for k in ("primary", "secondary", "accent", "background", "text"):
+            v = palette.get(k)
+            if v:
+                names.append(f"{k}: {_hex_to_color_name(v)}")
+        palette_names = ", ".join(names)
+    style_tokens = ""
+    if style_guide:
+        style_tokens += f"Guía de estilo: {style_guide}. "
+    if palette_names:
+        style_tokens += f"Paleta: {palette_names}. "
+
     return (
         f"Eres {char_name}, {persona} con identidad propia. "
         + (f"Descripción: {visual}. " if visual else "")
         + (f"Rasgos: {traits}. " if traits else "")
         + (f"Notas: {notes}. " if notes else "")
+        + style_tokens
         + gender_rule
         + "Responde en primera persona, de forma natural y cercana, máximo 4 frases. "
         + voice_rule

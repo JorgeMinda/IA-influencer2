@@ -6,6 +6,7 @@ import { ImageFrame } from '../components/ImageFrame';
 import { useToast } from '../components/Toast';
 import { CharacterEditor } from '../features/characters/CharacterEditor';
 import { VoiceProfileEditor } from '../features/characters/VoiceProfileEditor';
+import { BrandProfileEditor } from '../features/characters/BrandProfileEditor';
 import { ConsistencyTest } from '../features/characters/ConsistencyTest';
 import { ReferenceUploadForm } from '../features/characters/ReferenceUploadForm';
 import { useAsync } from '../hooks/useAsync';
@@ -99,24 +100,7 @@ export function CharacterDetailPage() {
       ) : null}
 
       {tab === 'identidad' ? (
-        <div className="card stack" aria-label="Identidad visual del personaje">
-          <h2>Identidad visual</h2>
-          <p className="hint">
-            La guía de estilo, paleta y watermark se configurarán aquí. Próximamente: inyección de tokens de estilo en los prompts de generación y watermark en exportación.
-          </p>
-          <div className="field">
-            <label htmlFor="style-guide">Guía de estilo</label>
-            <textarea
-              id="style-guide"
-              className="input"
-              rows={4}
-              placeholder="Tono, mood, do's y don'ts del personaje…"
-              defaultValue={c.notes}
-              disabled
-            />
-            <p className="hint">Disponible en la siguiente fase.</p>
-          </div>
-        </div>
+        <BrandProfileEditor key={c.id} character={c} onSaved={(saved) => character.setData(saved)} />
       ) : null}
 
       {tab === 'voz' ? (

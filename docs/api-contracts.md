@@ -56,6 +56,15 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
     "pitch": 1.10,
     "pause_ms": 200
   },
+  "brand_profile": {
+    "watermark_url": null,
+    "watermark_position": "bottom-right",
+    "watermark_opacity": 40,
+    "watermark_size": "md",
+    "palette": { "primary": "#6366f1", "secondary": "#1e293b", "accent": "#f59e0b", "background": "#ffffff", "text": "#1e293b" },
+    "typography": "sans",
+    "style_guide": ""
+  },
   "archived": false,
   "reference_count": 3,
   "created_at": "…", "updated_at": "…"
@@ -63,7 +72,8 @@ Cualquier cambio se hace aquí primero. Todas las rutas cuelgan de `/api`.
 ```
 Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_traits` hasta 20 ítems de 1–120, `notes` 0–4000.
 `gender` es opcional en la entrada (`female | male | neutral | unspecified`, por defecto `unspecified`) y determina la voz del personaje (chat y modo llamada). Si falta o es `unspecified`, el cliente lo infiere de `visual_description`, `name`, rasgos y notas.
-`voice_profile` es opcional en la entrada y en la salida. Si es `null` o falta, el frontend usa el comportamiento actual (voz por género). Forma: `{ "engine": "browser", "voice_name": string | null, "preset": "calida" | "energica" | "serena" | "seria" | "custom", "rate": number (0.7–1.3), "pitch": number (0.7–1.5), "pause_ms": integer (0–600) }`. `engine` solo admite `"browser"` por ahora. Valores fuera de rango → 422. Se copia al duplicar el personaje. Compatible hacia atrás: los personajes sin `voice_profile` siguen funcionando.
+`voice_profile` es opcional en la entrada y en la salida. Si es `null` o falta, el frontend usa el comportamiento actual (voz por género).
+`brand_profile` es opcional en la entrada y en la salida. Si es `null` o falta, no se aplica marca ni inyección de estilo. `watermark_url` puede ser una URL de Supabase o un DataURL (logos < 200 KB). `palette` es un objeto semántico (no array). `typography` es un union cerrado. La guía de estilo y la paleta se inyectan en los prompts de generación y en el system prompt del chat (anti-slop). Forma: `{ "engine": "browser", "voice_name": string | null, "preset": "calida" | "energica" | "serena" | "seria" | "custom", "rate": number (0.7–1.3), "pitch": number (0.7–1.5), "pause_ms": integer (0–600) }`. `engine` solo admite `"browser"` por ahora. Valores fuera de rango → 422. Se copia al duplicar el personaje. Compatible hacia atrás: los personajes sin `voice_profile` siguen funcionando.
 
 ### ReferenceImage
 ```json
@@ -134,7 +144,7 @@ Reglas: `name` 1–80 caracteres, `visual_description` 0–2000, `invariant_trai
 | Ruta | Descripción |
 |---|---|
 | `GET /api/characters?include_archived=false&q=&limit=&offset=` | Lista `{items: Character[], total}` |
-| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`, `gender?` (`female`\|`male`\|`neutral`\|`unspecified`), `voice_profile?`. → `201 Character` |
+| `POST /api/characters` | Crea. Cuerpo: `name`, `visual_description?`, `invariant_traits?`, `notes?`, `gender?` (`female`\|`male`\|`neutral`\|`unspecified`), `voice_profile?`, `brand_profile?`. → `201 Character` |
 | `GET /api/characters/{id}` | Ficha |
 | `PATCH /api/characters/{id}` | Actualización parcial (incluye `archived`) |
 | `POST /api/characters/{id}/duplicate` | Copia la ficha (sin referencias ni resultados), nombre `"<name> (copia)"`. → `201` |

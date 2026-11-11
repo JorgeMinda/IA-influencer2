@@ -3,6 +3,7 @@ import io
 
 import pytest
 from app.main import build_chat_system_prompt
+from app.services.studio import _enrich_prompt_with_brand
 from PIL import Image
 
 from app.core.errors import ApiError
@@ -64,6 +65,21 @@ def test_character_voice_profile_roundtrip(svc):
     assert c2["voice_profile"] is None
 
 
+def test_character_brand_profile_roundtrip(svc):
+    brand = {"watermark_url": None, "watermark_position": "bottom-right", "watermark_opacity": 40,
+             "watermark_size": "md", "palette": {"primary": "#6366f1", "secondary": "#1e293b", "accent": "#f59e0b"},
+             "typography": "sans", "style_guide": "tono cercano, colores cálidos"}
+    c = svc.create_character(U1, {"name": "Marca", "brand_profile": brand})
+    assert c["brand_profile"] == brand
+    assert svc.get_character(U1, c["id"])["brand_profile"] == brand
+    new_brand = {"watermark_url": None, "watermark_position": "top-left", "watermark_opacity": 80,
+                 "watermark_size": "lg", "palette": {"primary": "#ff0000"}, "typography": "serif", "style_guide": "serio"}
+    assert svc.update_character(U1, c["id"], {"brand_profile": new_brand})["brand_profile"] == new_brand
+    assert svc.duplicate_character(U1, c["id"])["brand_profile"] == new_brand
+    c2 = svc.create_character(U1, {"name": "SinMarca"})
+    assert c2["brand_profile"] is None
+
+
 def test_chat_system_prompt_voice_instruction():
     char = {"name": "Jade", "visual_description": "una supermodelo", "gender": "female",
             "invariant_traits": [], "notes": ""}
@@ -71,6 +87,33 @@ def test_chat_system_prompt_voice_instruction():
     prompt_with = build_chat_system_prompt(char, True)
     assert "La respuesta se dirá en voz alta" in prompt_with
     assert "La respuesta se dirá en voz alta" not in prompt_without
+
+
+def test_chat_system_prompt_style_injection():
+    char = {"name": "Jade", "visual_description": "una supermodelo", "gender": "female",
+            "invariant_traits": [], "notes": "",
+            "brand_profile": {"style_guide": "tono cercano, colores cálidos",
+                              "palette": {"primary": "#ff0000", "secondary": "#0000ff"}}}
+    prompt = build_chat_system_prompt(char, False)
+    assert "Guía de estilo: tono cercano, colores cálidos" in prompt
+    assert "Paleta:" in prompt
+    # sin brand_profile, no se inyecta
+    char2 = {"name": "X", "visual_description": "", "gender": "unspecified", "invariant_traits": [], "notes": ""}
+    prompt2 = build_chat_system_prompt(char2, False)
+    assert "Guía de estilo" not in prompt2
+    assert "Paleta:" not in prompt2
+
+
+def test_enrich_prompt_with_brand():
+    brand = {"style_guide": "minimalista", "palette": {"primary": "#ff0000", "accent": "#0000ff"}}
+    out = _enrich_prompt_with_brand("retrato", brand)
+    assert "retrato" in out
+    assert "estilo: minimalista" in out
+    assert "paleta:" in out
+    assert "rojo" in out
+    # sin brand, prompt sin cambios
+    assert _enrich_prompt_with_brand("retrato", None) == "retrato"
+    assert _enrich_prompt_with_brand("retrato", {}) == "retrato"
 
 
 # ---- referencias ----

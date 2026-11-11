@@ -14,6 +14,20 @@ export type CharacterGender = 'female' | 'male' | 'neutral' | 'unspecified';
 export type VoicePreset = 'calida' | 'energica' | 'serena' | 'seria' | 'custom';
 export type VoiceEngine = 'browser';
 
+export type BrandTypography = 'sans' | 'serif' | 'mono' | 'display';
+export type WatermarkPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+export type WatermarkSize = 'sm' | 'md' | 'lg';
+
+export interface BrandProfile {
+  watermark_url: string | null;
+  watermark_position: WatermarkPosition;
+  watermark_opacity: number;
+  watermark_size: WatermarkSize;
+  palette: { primary: string; secondary: string; accent: string; background?: string; text?: string };
+  typography: BrandTypography;
+  style_guide: string;
+}
+
 export interface VoiceProfile {
   engine: VoiceEngine;
   voice_name: string | null;
@@ -33,6 +47,8 @@ export interface Character {
   gender?: CharacterGender;
   /** Perfil de voz del personaje. Puede faltar en respuestas antiguas. */
   voice_profile?: VoiceProfile | null;
+  /** Perfil de marca/identidad visual. Puede faltar en respuestas antiguas. */
+  brand_profile?: BrandProfile | null;
   archived: boolean;
   reference_count: number;
   created_at: string;
@@ -46,6 +62,7 @@ export interface CharacterInput {
   notes?: string;
   gender?: CharacterGender;
   voice_profile?: VoiceProfile | null;
+  brand_profile?: BrandProfile | null;
 }
 
 export type CharacterPatch = Partial<CharacterInput> & { archived?: boolean };

@@ -25,6 +25,52 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+_HEX_TO_COLOR = {
+    "#ff0000": "rojo", "#00ff00": "verde", "#0000ff": "azul",
+    "#ffff00": "amarillo", "#ff00ff": "magenta", "#00ffff": "cian",
+    "#000000": "negro", "#ffffff": "blanco", "#808080": "gris",
+    "#ffa500": "naranja", "#800080": "morado", "#ffc0cb": "rosa",
+    "#a52a2a": "marrón", "#008000": "verde oscuro", "#000080": "azul marino",
+}
+
+
+def _hex_to_color_name(hexv: str) -> str:
+    h = (hexv or "").strip().lower()
+    if h in _HEX_TO_COLOR:
+        return _HEX_TO_COLOR[h]
+    try:
+        r = int(h[1:3], 16); g = int(h[3:5], 16); b = int(h[5:7], 16)
+    except (ValueError, IndexError):
+        return h
+    best, best_d = None, 10**9
+    for k, v in _HEX_TO_COLOR.items():
+        kr, kg, kb = int(k[1:3], 16), int(k[3:5], 16), int(k[5:7], 16)
+        d = (r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2
+        if d < best_d:
+            best_d, best = d, v
+    return best or h
+
+
+def _enrich_prompt_with_brand(prompt: str, brand: Any) -> str:
+    """Inyecta guía de estilo y paleta (anti-slop) en el prompt de generación."""
+    if not isinstance(brand, dict):
+        return prompt
+    parts = [prompt.strip()] if prompt else []
+    style_guide = (brand.get("style_guide") or "").strip()
+    if style_guide:
+        parts.append(f"estilo: {style_guide}")
+    palette = brand.get("palette")
+    if isinstance(palette, dict):
+        names = []
+        for k in ("primary", "secondary", "accent", "background", "text"):
+            v = palette.get(k)
+            if v:
+                names.append(_hex_to_color_name(v))
+        if names:
+            parts.append("paleta: " + ", ".join(names))
+    return ", ".join(p for p in parts if p)
+
+
 class InlineExecutor:
     """Ejecuta en el acto (pruebas)."""
     def submit(self, fn, *a, **kw):
@@ -45,6 +91,7 @@ class StudioService:
                "invariant_traits": r["invariant_traits"], "notes": r["notes"],
                "gender": r.get("gender", "unspecified"),
                "voice_profile": r.get("voice_profile"),
+               "brand_profile": r.get("brand_profile"),
                "archived": r["archived"],
                "reference_count": refs, "created_at": r["created_at"], "updated_at": r.get("updated_at", r["created_at"])}
 
@@ -101,6 +148,7 @@ class StudioService:
                                           "notes": data.get("notes") or "",
                                           "gender": data.get("gender") or "unspecified",
                                           "voice_profile": data.get("voice_profile"),
+                                          "brand_profile": data.get("brand_profile"),
                                           "archived": False, "updated_at": _now()})
         return self._char_out(r, 0)
 
@@ -109,7 +157,7 @@ class StudioService:
         return self._char_out(r, self._ref_counts(user, [cid])[cid])
 
     def update_character(self, user: str, cid: str, patch: dict) -> dict:
-        allowed = {k: v for k, v in patch.items() if k in {"name", "visual_description", "invariant_traits", "notes", "archived", "gender", "voice_profile"}}
+        allowed = {k: v for k, v in patch.items() if k in {"name", "visual_description", "invariant_traits", "notes", "archived", "gender", "voice_profile", "brand_profile"}}
         self._char(user, cid)
         r = self.db.update("characters", cid, user, {**allowed, "updated_at": _now()}) if allowed else self._char(user, cid)
         if not r:
@@ -121,7 +169,8 @@ class StudioService:
         return self.create_character(user, {"name": f"{c['name']} (copia)"[:80], "visual_description": c["visual_description"],
                                            "invariant_traits": c["invariant_traits"], "notes": c["notes"],
                                            "gender": c.get("gender", "unspecified"),
-                                           "voice_profile": c.get("voice_profile")})
+                                           "voice_profile": c.get("voice_profile"),
+                                           "brand_profile": c.get("brand_profile")})
 
     def _storage_paths(self, user: str, table: str, col: str, value: str) -> list[tuple[str, str]]:
         out: list[tuple[str, str]] = []
@@ -248,6 +297,8 @@ class StudioService:
         char = self._char(user, d["character_id"])
         if violates_policy(d["prompt"], d.get("negative_prompt") or ""):
             raise errors.content_policy()
+        # Anti-slop: enriquecer el prompt con la guía de estilo y la paleta del personaje.
+        d["prompt"] = _enrich_prompt_with_brand(d["prompt"], char.get("brand_profile") if isinstance(char, dict) else None)
         # Límite de tareas activas por usuario (evita saturar el pool de hilos).
         active = 0
         for status in ("pending", "processing"):
