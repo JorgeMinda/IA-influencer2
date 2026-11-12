@@ -62,7 +62,14 @@ export function toResolvedProfile(
   return base;
 }
 
-export function useSpeech(initialEnabled = false, voiceGender: CharacterGender = 'unspecified', voiceProfile: VoiceProfileInput | null = null, voiceStudioVoiceId: string | null = null) {
+export const SUPPORTED_LANGUAGES: { code: string; label: string }[] = [
+  { code: 'es-ES', label: 'Español' },
+  { code: 'en-US', label: 'English' },
+  { code: 'pt-BR', label: 'Português' },
+  { code: 'fr-FR', label: 'Français' },
+];
+
+export function useSpeech(initialEnabled = false, voiceGender: CharacterGender = 'unspecified', voiceProfile: VoiceProfileInput | null = null, voiceStudioVoiceId: string | null = null, language = 'es-ES') {
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
   const RecCtor = getRecognitionCtor();
   const sttSupported = RecCtor !== null;
@@ -117,9 +124,11 @@ export function useSpeech(initialEnabled = false, voiceGender: CharacterGender =
             const engine = engineRef.current;
             if (!engine) { setSpeaking(false); return; }
             const voices = window.speechSynthesis.getVoices();
+            const langVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(language.split('-')[0].toLowerCase()));
+            const pool = langVoices.length > 0 ? langVoices : voices;
             let voiceName = profile.voiceName;
             if (!voiceName) {
-              const chosen = pickVoiceForGender(voices, voiceGender);
+              const chosen = pickVoiceForGender(pool, voiceGender);
               voiceName = chosen?.name ?? null;
             }
             const resolved: ResolvedVoiceProfile = { ...profile, voiceName };
@@ -132,16 +141,18 @@ export function useSpeech(initialEnabled = false, voiceGender: CharacterGender =
       const engine = engineRef.current;
       if (!engine) return;
       const voices = window.speechSynthesis.getVoices();
+      const langVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(language.split('-')[0].toLowerCase()));
+      const pool = langVoices.length > 0 ? langVoices : voices;
       let voiceName = profile.voiceName;
       if (!voiceName) {
-        const chosen = pickVoiceForGender(voices, voiceGender);
+        const chosen = pickVoiceForGender(pool, voiceGender);
         voiceName = chosen?.name ?? null;
       }
       const resolved: ResolvedVoiceProfile = { ...profile, voiceName };
       engine.speak(text, resolved, () => setSpeaking(false));
       setSpeaking(true);
     },
-    [ttsSupported, enabled, profile, voiceGender, voiceStudioVoiceId],
+    [ttsSupported, enabled, profile, voiceGender, voiceStudioVoiceId, language],
   );
 
   const stopListening = useCallback(() => {
@@ -159,7 +170,7 @@ export function useSpeech(initialEnabled = false, voiceGender: CharacterGender =
       stopSpeaking();
 
       const rec = new RecCtor();
-      rec.lang = 'es-ES';
+      rec.lang = language;
       rec.interimResults = false;
       rec.continuous = false;
       rec.maxAlternatives = 1;

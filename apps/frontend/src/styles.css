@@ -336,6 +336,13 @@ textarea.input { resize: vertical; min-height: 60px; }
   max-height: 120px;
 }
 
+.chat-lang {
+  min-height: 44px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  max-width: 110px;
+}
+
 .chat-header__actions {
   display: flex;
   align-items: center;

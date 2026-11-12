@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { getAccessToken } from '../services/auth';
-import { useSpeech } from '../hooks/useSpeech';
+import { useSpeech, SUPPORTED_LANGUAGES } from '../hooks/useSpeech';
 import { CallMode } from './CallMode';
 import type { CharacterGender, VoiceProfile } from '../types';
 
@@ -27,7 +27,8 @@ export function ChatPanel({ characterId, characterName, voiceGender, voiceProfil
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const speech = useSpeech(false, voiceGender ?? 'unspecified', voiceProfile ?? null, voiceStudioVoiceId ?? null);
+  const [language, setLanguage] = useState('es-ES');
+  const speech = useSpeech(false, voiceGender ?? 'unspecified', voiceProfile ?? null, voiceStudioVoiceId ?? null, language);
   const [callOpen, setCallOpen] = useState(false);
 
   // Scroll al último mensaje automáticamente
@@ -179,6 +180,17 @@ export function ChatPanel({ characterId, characterName, voiceGender, voiceProfil
       <div className="chat-header">
         <span>�Y'� Chatea con <strong>{characterName}</strong></span>
         <div className="chat-header__actions">
+          <select
+            className="input chat-lang"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            aria-label="Idioma de voz"
+            title="Idioma de voz y dictado"
+          >
+            {SUPPORTED_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -286,6 +298,7 @@ export function ChatPanel({ characterId, characterName, voiceGender, voiceProfil
           voiceGender={voiceGender}
           voiceProfile={voiceProfile}
           voiceStudioVoiceId={voiceStudioVoiceId}
+          language={language}
           onClose={() => setCallOpen(false)}
         />
       ) : null}
