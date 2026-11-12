@@ -268,7 +268,7 @@ export function StudioPage() {
                 disabled={!selectedCharacter?.brand_profile}
               />
               <span>
-                Aplicar marca (watermark + estilo)
+                Aplicar marca de agua en exportación
                 {!selectedCharacter?.brand_profile ? <small className="hint"> — configura la identidad del personaje primero</small> : null}
               </span>
             </label>
