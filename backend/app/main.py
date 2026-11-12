@@ -160,7 +160,7 @@ def build(settings: Settings) -> tuple[StudioService, object, RateLimiter]:
         store, blobs, auth = MemoryStore(), MemoryBlobs(), DevAuth()
     engines = {"mock": MockEngine(),
                "cloudflare": CloudflareEngine(settings.cloudflare_account_id, settings.cloudflare_api_token, settings.cloud_enabled),
-               "comfyui": ComfyUIEngine(settings.comfyui_enabled, settings.comfyui_url, settings.comfyui_workflow),
+               "comfyui": ComfyUIEngine(settings.comfyui_enabled, settings.comfyui_url, settings.comfyui_workflow, video_workflow_path=settings.comfyui_video_workflow),
                "voicestudio": VoiceStudioEngine(settings.voicestudio_enabled, settings.voicestudio_url)}
     svc = StudioService(settings, store, blobs, engines, ThreadPoolExecutor(max_workers=settings.max_concurrent_jobs))
     return svc, auth, RateLimiter(settings.rate_limit_per_minute)
@@ -427,18 +427,24 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
         )
 
 
-    # ---- video / baile / faceswap (scaffolding: sin motor disponible) ----
-    VIDEO_UNAVAILABLE = "No hay un motor de video disponible. Se requiere ComfyUI con GPU."
-
-    def _video_provider_ok() -> bool:
-        # Por ahora ningún motor declara soporte de video.
-        return False
-
+    # ---- video / baile / faceswap ----
     @app.post("/api/videos", status_code=202)
     def create_video(body: VideoCreate, u: str = U):
-        if not _video_provider_ok():
-            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
-        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        eng = svc.engines.get("comfyui")
+        if eng is None or not eng.is_available()[0]:
+            raise errors.ApiError(503, "provider_unavailable", "No hay un motor de video disponible. Se requiere ComfyUI con GPU o flujo de video configurado.")
+        # Validar personaje
+        svc.get_character(u, body.character_id)
+        # Ejecutar de forma síncrona por ahora (video puede tardar)
+        from app.engines.base import VideoGenRequest
+        req = VideoGenRequest(prompt=body.prompt, negative_prompt=body.negative_prompt,
+                             seed=body.seed or 0, width=body.width, height=body.height,
+                             duration_seconds=body.duration_seconds, fps=body.fps)
+        try:
+            result = eng.generate_video(req)
+        except Exception as exc:
+            raise errors.ApiError(503, "provider_unavailable", str(exc))
+        return {"id": "video-1", "status": "completed", "videos": len(result.videos)}
 
     @app.get("/api/videos/{vid}")
     def get_video(vid: str, u: str = U):
@@ -451,17 +457,18 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
 
     @app.post("/api/dances", status_code=202)
     def create_dance(body: DanceCreate, u: str = U):
-        # validar que el personaje existe
         svc.get_character(u, body.character_id)
-        if not _video_provider_ok():
-            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
-        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        eng = svc.engines.get("comfyui")
+        if eng is None or not eng.is_available()[0]:
+            raise errors.ApiError(503, "provider_unavailable", "No hay un motor de video disponible. Se requiere ComfyUI con GPU.")
+        raise errors.ApiError(503, "provider_unavailable", "Baile requiere un flujo de motion transfer en ComfyUI (pendiente de configurar).")
 
     @app.post("/api/faceswaps", status_code=202)
     def create_faceswap(body: FaceswapCreate, u: str = U):
-        if not _video_provider_ok():
-            raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
-        raise errors.ApiError(503, "provider_unavailable", VIDEO_UNAVAILABLE)
+        eng = svc.engines.get("comfyui")
+        if eng is None or not eng.is_available()[0]:
+            raise errors.ApiError(503, "provider_unavailable", "No hay un motor de video disponible. Se requiere ComfyUI con GPU.")
+        raise errors.ApiError(503, "provider_unavailable", "Faceswap requiere un flujo de character swap en ComfyUI (pendiente de configurar).")
 
     @app.get("/api/characters")
     def list_chars(include_archived: bool = False, q: str = "", limit: int = Query(50, ge=1, le=200),

@@ -34,6 +34,7 @@ class Settings:
     comfyui_enabled: bool = False
     comfyui_url: str = "http://127.0.0.1:8188"
     comfyui_workflow: str = "workflows/image-generation/workflow_api.json"
+    comfyui_video_workflow: str = "workflows/video-generation/workflow_api.json"
     # VoiceStudio (local)
     voicestudio_enabled: bool = False
     voicestudio_url: str = "http://localhost:3900"
@@ -115,6 +116,7 @@ def load_settings(environ: dict[str, str] | None = None) -> Settings:
         comfyui_enabled=_bool(e.get("ACS_COMFYUI_ENABLED")),
         comfyui_url=e.get("ACS_COMFYUI_URL", "http://127.0.0.1:8188").strip().rstrip("/"),
         comfyui_workflow=e.get("ACS_COMFYUI_WORKFLOW", "workflows/image-generation/workflow_api.json"),
+        comfyui_video_workflow=e.get("ACS_COMFYUI_VIDEO_WORKFLOW", "workflows/video-generation/workflow_api.json"),
         voicestudio_enabled=_bool(e.get("ACS_VOICESTUDIO_ENABLED")),
         voicestudio_url=e.get("ACS_VOICESTUDIO_URL", "http://localhost:3900").strip().rstrip("/"),
         cloud_enabled=_bool(e.get("ACS_CLOUD_ENABLED")),

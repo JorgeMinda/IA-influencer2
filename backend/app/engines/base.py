@@ -32,9 +32,37 @@ class EngineResult:
     params: dict = field(default_factory=dict)
 
 
+@dataclass
+class VideoGenRequest:
+    prompt: str
+    negative_prompt: str = ""
+    seed: int = 0
+    width: int = 512
+    height: int = 512
+    duration_seconds: int = 3
+    fps: int = 16
+    references: list[bytes] = field(default_factory=list)
+
+
+@dataclass
+class VideoResult:
+    videos: list[bytes]            # MP4/WebM en bytes
+    model: str
+    workflow_version: str = "1"
+    provider_job_id: str | None = None
+    params: dict = field(default_factory=dict)
+
+
 class ImageEngine(Protocol):
     name: str
     supports_references: bool
 
     def is_available(self) -> tuple[bool, str]: ...
     def generate(self, req: GenRequest) -> EngineResult: ...
+
+
+class VideoEngine(Protocol):
+    name: str
+
+    def is_available(self) -> tuple[bool, str]: ...
+    def generate_video(self, req: VideoGenRequest) -> VideoResult: ...

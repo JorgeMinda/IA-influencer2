@@ -27,7 +27,7 @@ def make_service(**over):
     s = Settings(**over)
     engines = {"mock": MockEngine(),
                "cloudflare": CloudflareEngine(s.cloudflare_account_id, s.cloudflare_api_token, s.cloud_enabled),
-               "comfyui": ComfyUIEngine(s.comfyui_enabled, s.comfyui_url, "no/existe.json"),
+               "comfyui": ComfyUIEngine(s.comfyui_enabled, s.comfyui_url, "no/existe.json", video_workflow_path="no/existe.json"),
                "voicestudio": VoiceStudioEngine(s.voicestudio_enabled, s.voicestudio_url)}
     return StudioService(s, MemoryStore(), MemoryBlobs(), engines, InlineExecutor())
 
