@@ -275,7 +275,7 @@ class StudioService:
             "seed": seed, "width": d["width"], "height": d["height"], "priority": d["priority"],
             "destination_requested": d["destination"], "destination_used": dest, "engine": eng.name, "model": None,
             "workflow_version": "1", "status": "pending", "error_code": None, "error_message": None, "attempts": 0,
-            "retry_of": retry_of, "provider_job_id": None, "params": {"references_sent": False},
+            "retry_of": retry_of, "provider_job_id": None, "params": {"references_sent": False, "apply_brand": bool(d.get("apply_brand", True))},
             "started_at": None, "completed_at": None})
         self.executor.submit(self.run_job, user, row["id"])
         return self.db.get("generation_jobs", row["id"], user) or row
@@ -297,6 +297,10 @@ class StudioService:
         char = self._char(user, d["character_id"])
         if violates_policy(d["prompt"], d.get("negative_prompt") or ""):
             raise errors.content_policy()
+        # Resolver apply_brand por defecto según si el personaje tiene brand_profile.
+        if d.get("apply_brand") is None:
+            bp = char.get("brand_profile") if isinstance(char, dict) else None
+            d["apply_brand"] = bool(bp)
         # Anti-slop: enriquecer el prompt con la guía de estilo y la paleta del personaje.
         d["prompt"] = _enrich_prompt_with_brand(d["prompt"], char.get("brand_profile") if isinstance(char, dict) else None)
         # Límite de tareas activas por usuario (evita saturar el pool de hilos).
@@ -333,7 +337,8 @@ class StudioService:
             raise errors.conflict("Solo se pueden reintentar tareas fallidas.")
         char = self._char(user, j["character_id"])
         d = {"prompt": j["prompt"], "negative_prompt": j["negative_prompt"], "width": j["width"], "height": j["height"],
-             "priority": j["priority"], "destination": j["destination_requested"]}
+             "priority": j["priority"], "destination": j["destination_requested"],
+             "apply_brand": j.get("params", {}).get("apply_brand", True)}
         dest = self._route(d["destination"], confirm_cloud)
         new = self._new_job(user, char, d, dest, j["seed"], retry_of=jid)
         return self._job_out(new, [])
@@ -349,7 +354,8 @@ class StudioService:
 
     def consistency_batch(self, user: str, cid: str, data: dict) -> dict:
         char = self._char(user, cid)
-        d0 = self._norm_gen({"destination": data.get("destination") or "auto", "priority": data.get("priority") or "balanced"})
+        d0 = self._norm_gen({"destination": data.get("destination") or "auto", "priority": data.get("priority") or "balanced",
+                            "apply_brand": data.get("apply_brand")})
         base = (data.get("base_prompt") or char["visual_description"] or char["name"]).strip()
         if violates_policy(base):
             raise errors.content_policy()
@@ -400,7 +406,7 @@ class StudioService:
                     made += [("outputs", path), ("thumbnails", tpath)]
                     meta = {"prompt": j["prompt"], "negative_prompt": j["negative_prompt"], "seed": j["seed"],
                             "model": res.model, "engine": eng.name, "workflow_version": res.workflow_version,
-                            "params": res.params}
+                            "params": res.params, "apply_brand": j.get("params", {}).get("apply_brand", True)}
                     self.db.insert("generation_artifacts", {"user_id": user, "job_id": jid, "character_id": j["character_id"],
                                                             "storage_path": path, "thumbnail_path": tpath, "width": p.width,
                                                             "height": p.height, "selected": False, "note": "", "metadata": meta})

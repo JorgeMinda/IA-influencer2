@@ -27,6 +27,7 @@ const DEFAULT_FORM: GenerationFormValues = {
   seed: '',
   priority: 'balanced',
   destination: 'auto',
+  applyBrand: true,
 };
 
 export function StudioPage() {
@@ -43,14 +44,20 @@ export function StudioPage() {
   const [activeTab, setActiveTab] = useState<'imagen' | 'chat'>('imagen');
 
 
+  const selectedCharacter = (characters.data?.items ?? []).find((c: Character) => c.id === form.characterId);
+
   useEffect(() => {
     const pid = searchParams.get('personaje');
     if (pid) setForm((f) => ({ ...f, characterId: pid }));
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!selectedCharacter) return;
+    setForm((f) => ({ ...f, applyBrand: !!selectedCharacter.brand_profile }));
+  }, [selectedCharacter?.id]);
+
   const options = getDestinationOptions(providerStatus);
   const effectiveDestination = resolveDestination(form.destination, options);
-  const selectedCharacter = (characters.data?.items ?? []).find((c: Character) => c.id === form.characterId);
 
   async function submit(cloudConfirmed: boolean) {
     const errs = validateGenerationForm({ ...form, destination: effectiveDestination });
@@ -251,6 +258,21 @@ export function StudioPage() {
           </p>
 
           {apiError ? <ErrorNotice error={apiError} title="No se pudo crear la tarea." /> : null}
+
+          <div className="field">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.applyBrand}
+                onChange={(e) => setForm((f) => ({ ...f, applyBrand: e.target.checked }))}
+                disabled={!selectedCharacter?.brand_profile}
+              />
+              <span>
+                Aplicar marca (watermark + estilo)
+                {!selectedCharacter?.brand_profile ? <small className="hint"> — configura la identidad del personaje primero</small> : null}
+              </span>
+            </label>
+          </div>
 
           <div className="actions">
             <button type="submit" className="btn btn-primary" disabled={busy}>

@@ -88,6 +88,7 @@ export interface ArtifactMetadata {
   engine: string;
   workflow_version: string;
   params: Record<string, unknown>;
+  apply_brand?: boolean;
 }
 
 export interface GenerationArtifact {
@@ -134,11 +135,13 @@ export interface GenerationInput {
   character_id: string;
   prompt: string;
   negative_prompt?: string;
-  destination: Destination;
-  priority: Priority;
-  width: number;
-  height: number;
+  destination?: Destination;
+  priority?: Priority;
+  width?: number;
+  height?: number;
   seed?: number | null;
+  confirm_cloud?: boolean;
+  apply_brand?: boolean;
 }
 
 export interface GalleryItem extends GenerationArtifact {

@@ -88,6 +88,7 @@ class GenerationCreate(BaseModel):
     height: int | None = Field(None, ge=256, le=1536)
     seed: int | None = Field(None, ge=0)
     confirm_cloud: bool = False
+    apply_brand: bool | None = None
 
 
 class ConfirmBody(BaseModel):

@@ -114,9 +114,13 @@ export function GalleryPage() {
                   <a className="btn btn-small" href={fileUrl(item.image_url)} download={`creator-studio-${item.id.slice(0, 8)}.png`} target="_blank" rel="noopener noreferrer">
                     Descargar
                   </a>
-                  <button type="button" className="btn btn-small" onClick={() => exportWithWatermark(item)} disabled={watermarkBusyId === item.id}>
-                    {watermarkBusyId === item.id ? 'Exportando…' : 'Con marca'}
-                  </button>
+                  {item.metadata?.apply_brand === false ? (
+                    <span className="hint" title="Marca desactivada en esta generación">Sin marca</span>
+                  ) : (
+                    <button type="button" className="btn btn-small" onClick={() => exportWithWatermark(item)} disabled={watermarkBusyId === item.id}>
+                      {watermarkBusyId === item.id ? 'Exportando…' : 'Con marca'}
+                    </button>
+                  )}
                   <button type="button" className="btn btn-small btn-danger-quiet" onClick={() => setToDelete(item)}>
                     Borrar
                   </button>

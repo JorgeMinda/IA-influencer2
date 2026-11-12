@@ -11,6 +11,7 @@ export interface GenerationFormValues {
   seed: string;
   priority: Priority;
   destination: Destination;
+  applyBrand: boolean;
 }
 export type GenerationFormErrors = Partial<Record<'characterId' | 'prompt' | 'negativePrompt' | 'seed' | 'size', string>>;
 
@@ -40,5 +41,6 @@ export function toGenerationInput(v: GenerationFormValues): GenerationInput {
     width: v.width,
     height: v.height,
     seed: s ? Number(s) : null,
+    apply_brand: v.applyBrand,
   };
 }
