@@ -6,8 +6,9 @@ import { useToast } from '../components/Toast';
 import { usePagedList } from '../hooks/usePagedList';
 import { formatDate } from '../lib/format';
 import { fileUrl } from '../services/api';
-import { deleteArtifact, listGallery, updateArtifact } from '../services/endpoints';
+import { deleteArtifact, getCharacter, listGallery, updateArtifact } from '../services/endpoints';
 import type { GalleryItem } from '../types';
+import { renderWatermarkedImage, downloadBlob } from '../utils/watermarkRenderer';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export function GalleryPage() {
@@ -16,6 +17,7 @@ export function GalleryPage() {
   const [selectedOnly, setSelectedOnly] = useState(false);
   const [toDelete, setToDelete] = useState<GalleryItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [watermarkBusyId, setWatermarkBusyId] = useState<string | null>(null);
 
   const charFilter = searchParams.get('personaje') ?? undefined;
 
@@ -33,6 +35,25 @@ export function GalleryPage() {
     [charFilter, selectedOnly],
     24,
   );
+
+  async function exportWithWatermark(item: GalleryItem) {
+    setWatermarkBusyId(item.id);
+    try {
+      const char = await getCharacter(item.character_id);
+      const brand = char.brand_profile ?? null;
+      if (!brand || (!brand.watermark_url && !brand.style_guide && !brand.palette)) {
+        notify('Este personaje no tiene perfil de marca configurado.', 'error');
+        return;
+      }
+      const blob = await renderWatermarkedImage(fileUrl(item.image_url), brand, char.name);
+      downloadBlob(blob, `creator-studio-${item.id.slice(0, 8)}-branded.png`);
+      notify('Imagen con marca descargada.');
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'No se pudo exportar con marca.', 'error');
+    } finally {
+      setWatermarkBusyId(null);
+    }
+  }
 
   async function toggleSelected(item: GalleryItem) {
     setBusyId(item.id);
@@ -93,6 +114,9 @@ export function GalleryPage() {
                   <a className="btn btn-small" href={fileUrl(item.image_url)} download={`creator-studio-${item.id.slice(0, 8)}.png`} target="_blank" rel="noopener noreferrer">
                     Descargar
                   </a>
+                  <button type="button" className="btn btn-small" onClick={() => exportWithWatermark(item)} disabled={watermarkBusyId === item.id}>
+                    {watermarkBusyId === item.id ? 'Exportando…' : 'Con marca'}
+                  </button>
                   <button type="button" className="btn btn-small btn-danger-quiet" onClick={() => setToDelete(item)}>
                     Borrar
                   </button>
