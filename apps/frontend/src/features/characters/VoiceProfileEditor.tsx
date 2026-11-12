@@ -2,7 +2,8 @@
 import { SelectField } from '../../components/Fields';
 import { ErrorNotice } from '../../components/Feedback';
 import { useToast } from '../../components/Toast';
-import { updateCharacter } from '../../services/endpoints';
+import { updateCharacter, listVoiceStudioVoices } from '../../services/endpoints';
+import { useProviders } from '../../hooks/useProviders';
 import type { Character, VoiceProfile, VoicePreset } from '../../types';
 import { BrowserTtsEngine } from '../../lib/ttsEngine';
 
@@ -21,6 +22,7 @@ const DEFAULT_PROFILE: VoiceProfile = {
   rate: 1.0,
   pitch: 1.0,
   pause_ms: 200,
+  voicestudio_voice_id: null,
 };
 
 interface VoiceProfileEditorProps {
@@ -30,8 +32,10 @@ interface VoiceProfileEditorProps {
 
 export function VoiceProfileEditor({ character, onSaved }: VoiceProfileEditorProps) {
   const { notify } = useToast();
+  const { status: providerStatus } = useProviders();
   const [voice, setVoice] = useState<VoiceProfile>(character.voice_profile ?? DEFAULT_PROFILE);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [vsVoices, setVsVoices] = useState<{ voice_id?: string; id?: string; name: string }[]>([]);
   const [testing, setTesting] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +52,13 @@ export function VoiceProfileEditor({ character, onSaved }: VoiceProfileEditorPro
     window.speechSynthesis.addEventListener('voiceschanged', load);
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
   }, []);
+
+  useEffect(() => {
+    if (!providerStatus?.voicestudio?.available) return;
+    listVoiceStudioVoices()
+      .then((r) => setVsVoices(r.items ?? []))
+      .catch(() => setVsVoices([]));
+  }, [providerStatus?.voicestudio?.available]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -84,6 +95,22 @@ export function VoiceProfileEditor({ character, onSaved }: VoiceProfileEditorPro
         ]}
         hint="Voces instaladas en tu navegador para espaÃ±ol."
       />
+      {providerStatus?.voicestudio?.available ? (
+        <SelectField
+          label="Voz VoiceStudio (local)"
+          value={voice.voicestudio_voice_id ?? ''}
+          onChange={(v) => setVoice((p) => ({ ...p, voicestudio_voice_id: v || null }))}
+          options={[
+            { value: '', label: 'Ninguna (usar navegador)' },
+            ...vsVoices.map((v) => ({ value: v.voice_id ?? v.id ?? '', label: v.name })),
+          ]}
+          hint="Si seleccionas una, se usa VoiceStudio en lugar del navegador (mas natural, soporta clonacion)."
+        />
+      ) : (
+        <p className="hint">
+          VoiceStudio no disponible. Instalalo desde https://voicestudio.sh y activa ACS_VOICESTUDIO_ENABLED=true para usar voces clonadas.
+        </p>
+      )}
       <SelectField
         label="Preset"
         value={voice.preset}

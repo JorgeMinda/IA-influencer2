@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.engines.cloudflare import CloudflareEngine
 from app.engines.comfyui import ComfyUIEngine
 from app.engines.mock import MockEngine
+from app.engines.voicestudio import VoiceStudioEngine
 from app.repositories.memory import MemoryBlobs, MemoryStore
 from app.services.studio import InlineExecutor, StudioService
 
@@ -26,7 +27,8 @@ def make_service(**over):
     s = Settings(**over)
     engines = {"mock": MockEngine(),
                "cloudflare": CloudflareEngine(s.cloudflare_account_id, s.cloudflare_api_token, s.cloud_enabled),
-               "comfyui": ComfyUIEngine(s.comfyui_enabled, s.comfyui_url, "no/existe.json")}
+               "comfyui": ComfyUIEngine(s.comfyui_enabled, s.comfyui_url, "no/existe.json"),
+               "voicestudio": VoiceStudioEngine(s.voicestudio_enabled, s.voicestudio_url)}
     return StudioService(s, MemoryStore(), MemoryBlobs(), engines, InlineExecutor())
 
 

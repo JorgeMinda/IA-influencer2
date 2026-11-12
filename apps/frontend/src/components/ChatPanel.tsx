@@ -15,18 +15,19 @@ interface ChatPanelProps {
   characterName: string;
   voiceGender?: CharacterGender;
   voiceProfile?: VoiceProfile | null;
+  voiceStudioVoiceId?: string | null;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
-export function ChatPanel({ characterId, characterName, voiceGender, voiceProfile }: ChatPanelProps) {
+export function ChatPanel({ characterId, characterName, voiceGender, voiceProfile, voiceStudioVoiceId }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const speech = useSpeech(false, voiceGender ?? 'unspecified', voiceProfile ?? null);
+  const speech = useSpeech(false, voiceGender ?? 'unspecified', voiceProfile ?? null, voiceStudioVoiceId ?? null);
   const [callOpen, setCallOpen] = useState(false);
 
   // Scroll al último mensaje automáticamente
@@ -284,6 +285,7 @@ export function ChatPanel({ characterId, characterName, voiceGender, voiceProfil
           characterName={characterName}
           voiceGender={voiceGender}
           voiceProfile={voiceProfile}
+          voiceStudioVoiceId={voiceStudioVoiceId}
           onClose={() => setCallOpen(false)}
         />
       ) : null}

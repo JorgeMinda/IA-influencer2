@@ -11,6 +11,7 @@ interface CallModeProps {
   characterName: string;
   voiceGender?: CharacterGender;
   voiceProfile?: VoiceProfile | null;
+  voiceStudioVoiceId?: string | null;
   onClose: () => void;
 }
 
@@ -20,8 +21,8 @@ type CallStatus = 'idle' | 'listening' | 'thinking' | 'speaking';
  * Videollamada simulada: avatar del personaje + voz (TTS) + micrófono (STT).
  * No usa WebRTC ni lipsync (eso requiere GPU). Funciona con las APIs del navegador.
  */
-export function CallMode({ characterId, characterName, voiceGender, voiceProfile, onClose }: CallModeProps) {
-  const speech = useSpeech(true, voiceGender ?? 'unspecified', voiceProfile ?? null);
+export function CallMode({ characterId, characterName, voiceGender, voiceProfile, voiceStudioVoiceId, onClose }: CallModeProps) {
+  const speech = useSpeech(true, voiceGender ?? 'unspecified', voiceProfile ?? null, voiceStudioVoiceId ?? null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

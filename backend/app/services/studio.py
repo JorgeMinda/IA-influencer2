@@ -482,9 +482,11 @@ class StudioService:
     def providers_status(self) -> dict:
         lo, ld = self.engines["comfyui"].is_available()
         co, cd = self.engines["cloudflare"].is_available()
+        vo, vd = self.engines["voicestudio"].is_available()
         return {"local": {"enabled": self.s.comfyui_enabled, "available": lo, "detail": ld},
                 "cloud": {"enabled": self.s.cloud_enabled, "provider": "cloudflare",
                           "configured": self.s.cloud_configured, "detail": cd},
+                "voicestudio": {"enabled": self.s.voicestudio_enabled, "available": vo, "detail": vd},
                 "mock": {"enabled": True, "detail": "Motor simulado para desarrollo"},
                 "limits": {"max_upload_mb": self.s.max_upload_mb, "max_concurrent_jobs": self.s.max_concurrent_jobs,
                            "rate_limit_per_minute": self.s.rate_limit_per_minute}}

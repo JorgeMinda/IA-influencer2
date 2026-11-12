@@ -134,7 +134,26 @@ ai-creator-studio/
 6. Pulsa **Llamar**: se abre el modo llamada con el avatar. Repite los pasos 4 y 5 dentro de la llamada. Usa **Colgar** para salir.
 7. Comprobaciones de error: sin permiso de micrófono debe mostrarse un aviso claro; en un navegador sin soporte, los botones de voz/micrófono no aparecen y se indica el requisito.
 
-> **Límite actual:** el avatar es una imagen fija y la voz usa el sintetizador del navegador. El *lipsync* (boca sincronizada) y el video/baile/faceswap necesitan una instancia local de ComfyUI con GPU y quedan como fase siguiente.
+> **Límite actual:** el avatar es una imagen fija y la voz usa el sintetizador del navegador (o VoiceStudio si está instalado). El *lipsync* (boca sincronizada) y el video/baile/faceswap necesitan una instancia local de ComfyUI con GPU o suscripción de pago y quedan como fase siguiente.
+
+---
+
+## Voz de alta calidad (opcional): VoiceStudio
+
+VoiceStudio es una app de escritorio open-source (AGPL-3.0) que corre modelos de voz localmente (clonación, doblaje, 646 idiomas). No requiere cuenta ni API key. Corre en CPU (más lento) o GPU.
+
+1. Descarga e instala desde https://voicestudio.sh
+2. Ejecútala (se abre en http://localhost:3900)
+3. En `backend/.env` añade:
+   ```env
+   ACS_VOICESTUDIO_ENABLED=true
+   ACS_VOICESTUDIO_URL=http://localhost:3900
+   ```
+4. Reinicia el backend. En Ajustes → Proveedores verás "VoiceStudio disponible".
+5. En la ficha de un personaje → tab Voz → selecciona una voz de VoiceStudio.
+6. Al activar "Voz: ON" en el chat, se usará VoiceStudio en lugar del navegador.
+
+Verificación: `python scripts\voicestudio_smoke.py` (debe imprimir "OK. VoiceStudio funciona correctamente.")
 
 ---
 

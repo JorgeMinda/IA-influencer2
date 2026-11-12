@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.core.auth import RateLimiter, SupabaseAuth
 from app.core.config import Settings
 from app.engines.mock import MockEngine
+from app.engines.voicestudio import VoiceStudioEngine
 from app.main import create_app
 from app.repositories.memory import MemoryBlobs, MemoryStore
 from app.services.studio import StudioService
@@ -274,7 +275,7 @@ def test_unauthorized_in_supabase_mode():
     store, blobs = MemoryStore(), MemoryBlobs()
     auth = SupabaseAuth("https://test.supabase.co", "secret", MockHttp())
     from concurrent.futures import ThreadPoolExecutor
-    svc = StudioService(s, store, blobs, {"mock": MockEngine()}, ThreadPoolExecutor(max_workers=1))
+    svc = StudioService(s, store, blobs, {"mock": MockEngine(), "voicestudio": VoiceStudioEngine(False, "http://localhost:3900")}, ThreadPoolExecutor(max_workers=1))
     sp_app = create_app(s, parts=(svc, auth, RateLimiter(60)))
     sp_client = TestClient(sp_app)
 

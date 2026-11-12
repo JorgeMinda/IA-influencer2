@@ -51,6 +51,7 @@ function NewCharacterDialog({ onClose }: { onClose: () => void }) {
           rate: pv.rate,
           pitch: pv.pitch,
           pause_ms: 200,
+          voicestudio_voice_id: null,
         },
       });
       navigate(`/personajes/${c.id}`);

@@ -35,6 +35,7 @@ export interface VoiceProfile {
   rate: number;
   pitch: number;
   pause_ms: number;
+  voicestudio_voice_id: string | null;
 }
 
 export interface Character {
@@ -164,6 +165,7 @@ export interface GalleryFilters {
 export interface ProvidersStatus {
   local: { enabled: boolean; available: boolean; detail: string };
   cloud: { enabled: boolean; provider: string; configured: boolean; detail: string };
+  voicestudio: { enabled: boolean; available: boolean; detail: string };
   mock: { enabled: boolean; detail: string };
   limits: { max_upload_mb: number; max_concurrent_jobs: number; rate_limit_per_minute: number };
 }

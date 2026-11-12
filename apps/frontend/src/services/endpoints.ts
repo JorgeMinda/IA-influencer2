@@ -69,6 +69,23 @@ export const createFaceswap = (body: {
   target_image_id: string;
   destination?: string;
 }) => api.post<VideoJob>('/api/faceswaps', body);
+
+export const listVoiceStudioVoices = () => api.get<{ items: { voice_id?: string; id?: string; name: string }[] }>('/api/voicestudio/voices');
+
+export async function synthesizeSpeech(text: string, voiceId: string): Promise<Blob> {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+  const token = (await import('./auth')).getAccessToken();
+  const res = await fetch(`${API_BASE}/api/tts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token ?? ''}`,
+    },
+    body: JSON.stringify({ text, voice_id: voiceId }),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  return res.blob();
+}
 export const deleteReference = (id: string) => api.del(`/api/references/${id}`, { query: { confirm: true } });
 
 // Generaciones

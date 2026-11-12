@@ -25,6 +25,7 @@ from app.core.config import Settings, load_settings
 from app.engines.cloudflare import CloudflareEngine
 from app.engines.comfyui import ComfyUIEngine
 from app.engines.mock import MockEngine
+from app.engines.voicestudio import VoiceStudioEngine
 from app.repositories.base import StoreError
 from app.repositories.memory import MemoryBlobs, MemoryStore
 from app.services.studio import StudioService
@@ -159,7 +160,8 @@ def build(settings: Settings) -> tuple[StudioService, object, RateLimiter]:
         store, blobs, auth = MemoryStore(), MemoryBlobs(), DevAuth()
     engines = {"mock": MockEngine(),
                "cloudflare": CloudflareEngine(settings.cloudflare_account_id, settings.cloudflare_api_token, settings.cloud_enabled),
-               "comfyui": ComfyUIEngine(settings.comfyui_enabled, settings.comfyui_url, settings.comfyui_workflow)}
+               "comfyui": ComfyUIEngine(settings.comfyui_enabled, settings.comfyui_url, settings.comfyui_workflow),
+               "voicestudio": VoiceStudioEngine(settings.voicestudio_enabled, settings.voicestudio_url)}
     svc = StudioService(settings, store, blobs, engines, ThreadPoolExecutor(max_workers=settings.max_concurrent_jobs))
     return svc, auth, RateLimiter(settings.rate_limit_per_minute)
 
@@ -334,6 +336,31 @@ def create_app(settings: Settings | None = None, parts=None) -> FastAPI:
     @app.get("/api/providers/status")
     def providers(_: str = U):
         return svc.providers_status()
+
+    # ---- VoiceStudio (TTS local con voces clonadas) ----
+    @app.get("/api/voicestudio/voices")
+    def vs_voices(u: str = U):
+        eng = svc.engines.get("voicestudio")
+        if eng is None or not eng.is_available()[0]:
+            raise errors.ApiError(503, "provider_unavailable", "VoiceStudio no disponible.")
+        return {"items": eng.list_voices()}
+
+    class TtsBody(BaseModel):
+        text: str = Field(min_length=1, max_length=5000)
+        voice_id: str = Field(min_length=1)
+        model: str = "default"
+
+    @app.post("/api/tts")
+    def tts(body: TtsBody, u: str = U):
+        eng = svc.engines.get("voicestudio")
+        if eng is None or not eng.is_available()[0]:
+            raise errors.ApiError(503, "provider_unavailable", "VoiceStudio no disponible.")
+        try:
+            audio = eng.synthesize(body.text, body.voice_id, body.model)
+        except Exception as exc:
+            raise errors.ApiError(503, "provider_unavailable", str(exc))
+        from fastapi.responses import Response
+        return Response(content=audio, media_type="audio/mpeg")
 
     # ---- chat con personaje (efímero, SSE streaming) ----
     import json as _json

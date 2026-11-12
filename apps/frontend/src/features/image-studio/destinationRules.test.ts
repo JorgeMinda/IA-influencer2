@@ -5,6 +5,7 @@ import type { ProvidersStatus } from '../../types';
 const baseStatus: ProvidersStatus = {
   local: { enabled: false, available: false, detail: 'desactivado' },
   cloud: { enabled: false, configured: false, provider: 'cloudflare', detail: 'desactivado' },
+  voicestudio: { enabled: false, available: false, detail: 'desactivado' },
   mock: { enabled: true, detail: 'simulado' },
   limits: { max_upload_mb: 8, max_concurrent_jobs: 2, rate_limit_per_minute: 60 },
 };
@@ -28,6 +29,7 @@ describe('getDestinationOptions', () => {
     const statusWithCloud: ProvidersStatus = {
       ...baseStatus,
       cloud: { enabled: true, configured: true, provider: 'cloudflare', detail: 'listo' },
+      voicestudio: { enabled: false, available: false, detail: 'desactivado' },
     };
     const opts = getDestinationOptions(statusWithCloud);
     const cloud = opts.find((o) => o.value === 'cloud')!;
